@@ -1,8 +1,6 @@
 project_name: kubestrap
 archives:
-  - builds:
-      - default
-    strip_parent_binary_folder: true
+  - strip_parent_binary_folder: true
     format_overrides:
       - goos: windows
         format: zip
