@@ -1,4 +1,15 @@
 project_name: kubestrap
+archives:
+  - builds:
+      - default
+    strip_parent_binary_folder: true
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+      - kubestrap.yaml
 builds:
   - env:
       - CGO_ENABLED=0
