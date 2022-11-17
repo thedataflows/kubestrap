@@ -1,0 +1,17 @@
+raw:
+  # timeout: 20s
+  # raw-output: false
+  utilities:
+  - name: yq
+    release: 4.29.2
+    url:
+      windows: https://github.com/mikefarah/yq/releases/download/v{{release}}/yq_{{os}}_{{arch}}.exe
+      linux: https://github.com/mikefarah/yq/releases/download/v{{release}}/yq_{{os}}_{{arch}}
+    version-command: --version
+  - name: k0s
+    release: v1.24.8+k0s.0
+    url:
+      windows: https://github.com/k0sproject/k0s/releases/download/{{release}}/{{name}}-{{release}}-{{arch}}.exe
+      linux: https://github.com/k0sproject/k0s/releases/download/{{release}}/{{name}}-{{release}}-{{arch}}
+    # extract:
+# log-level: debug
