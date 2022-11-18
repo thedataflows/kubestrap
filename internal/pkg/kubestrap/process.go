@@ -86,7 +86,7 @@ func RunProcess(exePath string, args []string, timeout time.Duration, rawOutput 
 	return &statusChan, nil
 }
 
-// ProcessRunning returns the PID of a running process matched by image name and command line
+// IsProcessRunning returns the PID of a running process matched by image name and command line
 func IsProcessRunning(binaryPath, cmdLine string) (int, error) {
 	procs, err := process.Processes()
 	if err != nil {
@@ -105,6 +105,7 @@ func IsProcessRunning(binaryPath, cmdLine string) (int, error) {
 	return 0, nil
 }
 
+// SetEnvPath appends (if before is true) or prepends elenebt to PATH for the current process
 func SetEnvPath(element string, before bool) error {
 	if element == "" {
 		return nil
