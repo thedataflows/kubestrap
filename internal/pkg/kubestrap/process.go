@@ -15,10 +15,18 @@ import (
 
 // RunProcess starts a process and waits for it to complete but not after specified timeout
 func RunProcess(exePath string, args []string, timeout time.Duration, rawOutput bool, buffered bool) (*cmd.Status, error) {
+	// eliminate empty args
+	var cleanArgs []string
+	for _, a := range args {
+		if a != "" {
+			cleanArgs = append(cleanArgs, a)
+		}
+	}
+
 	currentCmd := cmd.NewCmdOptions(cmd.Options{
 		Buffered:  buffered,
 		Streaming: !buffered,
-	}, exePath, args...)
+	}, exePath, cleanArgs...)
 
 	exeName := filepath.Base(exePath)
 	commandLineString := strings.Join(currentCmd.Args, " ")
