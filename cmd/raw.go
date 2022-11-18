@@ -34,7 +34,6 @@ var rawCmd = &cobra.Command{
 			//config.ErrorUnset = true
 		})
 		logging.ExitOnError(err, 1)
-		logging.Logger.Debugf("%+v", commands)
 		if len(args) == 0 {
 			cmd.Help()
 			fmt.Printf("\nAvailable utilities:\n")
