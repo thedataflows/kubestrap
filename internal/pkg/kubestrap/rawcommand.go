@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -29,7 +30,10 @@ type RawCommand struct {
 	} `yaml:"url"`
 	Help      string `yaml:"help,omitempty"`
 	CachePath string `yaml:"cache-path,omitempty"`
-	Extract   string `yaml:"extract,omitempty"`
+	Extract   struct {
+		Pattern string   `yaml:"pattern"`
+		List    []string `yaml:"list"`
+	} `yaml:"extract,omitempty"`
 }
 
 // ExecuteCommand attempts to execute an instance of a subcommand
@@ -80,7 +84,7 @@ func (command *RawCommand) CheckCommand(timeout time.Duration) (string, error) {
 		if command.VersionCommand == "" {
 			command.VersionCommand = "version"
 		}
-		status, errRun := RunProcess(exePath, []string{command.VersionCommand}, timeout, true, true)
+		status, errRun := RunProcess(exePath, regexp.MustCompile(`\s+`).Split(command.VersionCommand, -1), timeout, true, true)
 		if errRun != nil {
 			return "", logging.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%+v", command.Name, errRun))
 		}
@@ -177,7 +181,7 @@ cache:
 		if slices.Contains(extensions, filepath.Ext(cachePath)) {
 			exePath := filepath.Join(exeDir, files.AppendExtension(command.Name))
 			if cachePath == exePath {
-				return nil, fmt.Errorf("cache file and command are the same, but the version mismatches? Please remove the current cache file or set as a different name or directory")
+				return []string{exePath}, nil
 			}
 			var err error
 			if command.CachePath != "" || parsedUrl.Scheme == "file" {
@@ -196,7 +200,6 @@ cache:
 		goto extract
 	}
 
-	// Download
 	if download {
 		switch parsedUrl.Scheme {
 		case "file":
@@ -224,13 +227,25 @@ cache:
 	}
 
 extract:
+	listToExtract := command.Extract.List
+	if len(command.Extract.List) == 0 {
+		listToExtract = []string{files.AppendExtension(command.Name)}
+	}
 	extractedFiles, errExtract := installer.ExtractFiles(
 		cachePath,
 		exeDir,
-		[]string{files.AppendExtension(command.Name)},
+		listToExtract,
+		command.Extract.Pattern,
 		true)
 	if errExtract != nil {
 		return nil, logging.ErrWithTrace(errExtract)
+	}
+
+	if download {
+		err := os.Remove(cachePath)
+		if err != nil {
+			return nil, logging.ErrWithTrace(err)
+		}
 	}
 	return extractedFiles, nil
 }
