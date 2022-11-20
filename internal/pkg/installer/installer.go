@@ -3,15 +3,18 @@ package installer
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"dataflows.com/kubestrap/internal/pkg/files"
 	"dataflows.com/kubestrap/internal/pkg/logging"
 	"github.com/cavaliergopher/grab/v3"
 	"github.com/mholt/archiver/v4"
+	"golang.org/x/exp/slices"
 )
 
 // DownloadFile will download a url to a local file
@@ -47,7 +50,6 @@ Loop:
 			break Loop
 		}
 	}
-	// check for errors
 	if err := resp.Err(); err != nil {
 		return "", err
 	}
@@ -55,15 +57,30 @@ Loop:
 	return resp.Filename, nil
 }
 
-// ExtractFiles will extract a list of files from given archive
+// ExtractFiles will extract a list of files from given archive to a destination that must be a directory
 //
-// if filesToExtract list is nil, all files will be extracted
-func ExtractFiles(archivePath, destination string, filesToExtract []string, stripPath bool) ([]string, error) {
+// if filesToExtract list is nil and patternToExtract is empty, all files will be extracted
+//
+// if destination does not exist, a directory will be created
+func ExtractFiles(archivePath, destination string, filesToExtract []string, patternToExtract string, stripPath bool) ([]string, error) {
+	if d, err := os.Stat(destination); err == nil {
+		if !d.IsDir() {
+			return nil, fmt.Errorf("destination '%s' must be a directory", destination)
+		}
+	}
+
+	re, err := regexp.Compile(patternToExtract)
+	if err != nil {
+		return nil, err
+	}
+
 	f, err := os.Open(archivePath)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
+
+	// try to identify archive
 	format, input, err := archiver.Identify(archivePath, f)
 	if err != nil {
 		return nil, err
@@ -80,16 +97,33 @@ func ExtractFiles(archivePath, destination string, filesToExtract []string, stri
 	}
 
 	// try to extract
-	extractedFiles := make([]string, len(filesToExtract))
+	extractedFiles := make([]string, 0, len(filesToExtract))
 	if ex, ok := format.(archiver.Extractor); ok {
-		err := ex.Extract(context.Background(), input, filesToExtract, func(ctx context.Context, f archiver.File) error {
-			for _, fe := range filesToExtract {
-				if filepath.Base(fe) == files.AppendExtension(f.NameInArchive) {
-					//os.Chmod(filepath.Base(f.NameInArchive), 0755)
-					extractedFiles = append(extractedFiles, f.NameInArchive)
-					logging.Logger.Infof("extracted %s", f)
+		err := ex.Extract(context.Background(), input, nil, func(ctx context.Context, f archiver.File) error {
+			if re.String() != "" {
+				if !re.Match([]byte(f.NameInArchive)) && !slices.Contains(filesToExtract, f.NameInArchive) {
+					return nil
 				}
+			} else if !slices.Contains(filesToExtract, f.NameInArchive) {
+				return nil
 			}
+			if f.IsDir() {
+				if stripPath {
+					return nil
+				}
+				err = os.MkdirAll(filepath.Join(destination, f.NameInArchive), f.Mode())
+				return err
+			}
+			dstFileName := f.NameInArchive
+			if stripPath {
+				dstFileName = filepath.Base(f.NameInArchive)
+			}
+			err := WriteExtractedFile(f, filepath.Join(destination, dstFileName))
+			if err != nil {
+				return err
+			}
+			extractedFiles = append(extractedFiles, dstFileName)
+			logging.Logger.Debugf("extracted %s", dstFileName)
 			return nil
 		})
 		if err != nil {
@@ -97,7 +131,52 @@ func ExtractFiles(archivePath, destination string, filesToExtract []string, stri
 		}
 	}
 
+	if len(extractedFiles) == 0 {
+		return nil, fmt.Errorf("no files extracted from '%s'. List to extract: %s. Pattern to extract: %s", archivePath, filesToExtract, patternToExtract)
+	}
 	return extractedFiles, nil
+}
+
+// WriteExtractedFile writes extracted file to destination
+func WriteExtractedFile(source archiver.File, destination string) error {
+	src, err := source.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	dstDir := filepath.Dir(destination)
+	_, err = os.Stat(dstDir)
+	if err != nil {
+		if err != os.ErrNotExist {
+			return err
+		}
+		err = os.MkdirAll(dstDir, 0700)
+		if err != nil {
+			return err
+		}
+	}
+
+	dst, err := os.OpenFile(destination, os.O_RDWR|os.O_CREATE|os.O_TRUNC, source.Mode())
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	buf := make([]byte, files.BUFFERSIZE)
+	for {
+		n, err := src.Read(buf)
+		if err != nil && err != io.EOF {
+			return err
+		}
+		if n == 0 {
+			break
+		}
+		if _, err := dst.Write(buf[:n]); err != nil {
+			return err
+		}
+	}
+	return err
 }
 
 // ExtractFilesZip extracts files from zip archive
