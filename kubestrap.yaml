@@ -1,17 +1,61 @@
+log-level: info
 raw:
-  # timeout: 20s
-  # raw-output: false
+  # timeout: 120s
+  raw-output: false
   utilities:
   - name: yq
-    release: 4.29.2
+    release: 4.30.4
     url:
-      windows: https://github.com/mikefarah/yq/releases/download/v{{release}}/yq_{{os}}_{{arch}}.exe
-      linux: https://github.com/mikefarah/yq/releases/download/v{{release}}/yq_{{os}}_{{arch}}
+      windows: https://github.com/mikefarah/yq/releases/download/v{{release}}/{{name}}_{{os}}_{{arch}}.exe
+      linux: &linux https://github.com/mikefarah/yq/releases/download/v{{release}}/{{name}}_{{os}}_{{arch}}
+      darwin: *linux
     version-command: --version
+  - name: kubectl
+    release: v1.24.8
+    url:
+      windows: https://dl.k8s.io/release/{{release}}/bin/windows/{{arch}}/{{name}}.exe
+      linux: &linux https://dl.k8s.io/release/{{release}}/bin/windows/{{arch}}/{{name}}
+      darwin: *linux
+    version-command: version --client=true -o=yaml
   - name: k0s
     release: v1.24.8+k0s.0
     url:
       windows: https://github.com/k0sproject/k0s/releases/download/{{release}}/{{name}}-{{release}}-{{arch}}.exe
-      linux: https://github.com/k0sproject/k0s/releases/download/{{release}}/{{name}}-{{release}}-{{arch}}
-    # extract:
-# log-level: debug
+      linux: &linux https://github.com/k0sproject/k0s/releases/download/{{release}}/{{name}}-{{release}}-{{arch}}
+      darwin: *linux
+  - name: k0sctl
+    release: v0.15.0-rc.1
+    url:
+      windows: https://github.com/k0sproject/k0sctl/releases/download/{{release}}/{{name}}-win-x64.exe
+      linux: &linux https://github.com/k0sproject/k0sctl/releases/download/{{release}}/{{name}}-{{os}}-x64
+      darwin: *linux
+  - name: flux
+    release: 0.36.0
+    url:
+      windows: https://github.com/fluxcd/flux2/releases/download/v{{release}}/{{name}}_{{release}}_{{os}}_{{arch}}.zip
+      linux: &linux https://github.com/fluxcd/flux2/releases/download/v{{release}}/{{name}}_{{release}}_{{os}}_{{arch}}.tar.gz
+      darwin: *linux
+    version-command: version --client
+  - name: age
+    release: v1.0.0
+    url:
+      windows: https://github.com/FiloSottile/age/releases/download/{{release}}/{{name}}-{{release}}-{{os}}-{{arch}}.zip
+      linux: &linux https://github.com/FiloSottile/age/releases/download/{{release}}/{{name}}-{{release}}-{{os}}-{{arch}}.tar.gz
+      darwin: *linux
+    version-command: --version
+    extract:
+      pattern: age/age.*
+  - name: sops
+    release: 3.7.3
+    url:
+      windows: https://github.com/mozilla/sops/releases/download/v{{release}}/{{name}}-v{{release}}.exe
+      linux: &linux https://github.com/mozilla/sops/releases/download/v{{release}}/{{name}}-v{{release}}.{{os}}.{{arch}}
+      darwin: *linux
+    version-command: --version
+  - name: velero
+    release: v1.10.0
+    url:
+      windows: &windows https://github.com/vmware-tanzu/velero/releases/download/{{release}}/{{name}}-{{release}}-{{os}}-{{arch}}.tar.gz
+      linux: *windows
+      darwin: *windows
+    version-command: version --client-only
