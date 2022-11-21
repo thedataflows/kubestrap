@@ -37,6 +37,7 @@ import (
 const (
 	defaultConfigPath     = "./"
 	defaultConfigFileName = "kubestrap.yaml"
+	viperEnvPrefix        = "KS"
 )
 
 var (
@@ -47,8 +48,8 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "kubestrap",
 	Short: "Toolbox for easy bootstrap of self service kubernetes",
-	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Long = cmd.Short + fmt.Sprintf("\n\nAll flags values can be provided via env vars starting with %s_*\nTo pass a subcommand (e.g. 'flux') flag, use %s_FLUX_FLAGNAME=somevalue", viperEnvPrefix, viperEnvPrefix)
 		cmd.Help()
 	},
 }
@@ -95,7 +96,7 @@ func initConfig() {
 		viper.SetConfigName(files.TrimExtension(defaultConfigFileName))
 	}
 
-	viper.SetEnvPrefix("ks")
+	viper.SetEnvPrefix(viperEnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv() // read in environment variables that match
 
