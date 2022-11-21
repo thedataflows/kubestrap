@@ -119,9 +119,9 @@ func CheckRequiredFlags(prefixKey string, requiredFlags []string, cmd *cobra.Com
 	if len(unsetFlags) > 0 {
 		fmt.Fprintln(os.Stderr, "Error: required flags are not set:")
 		for _, f := range unsetFlags {
-			fmt.Fprintf(os.Stderr, "  --%s", f)
+			fmt.Fprintf(os.Stderr, "  --%s\n", f)
 		}
-		fmt.Fprintf(os.Stderr, "\n\n")
+		fmt.Fprintf(os.Stderr, "\n")
 		cmd.Usage()
 		os.Exit(1)
 	}
