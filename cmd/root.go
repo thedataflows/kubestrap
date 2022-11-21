@@ -109,9 +109,9 @@ func initConfig() {
 }
 
 // CheckRequiredFlags exits with error when one ore more required flags are not set
-func CheckRequiredFlags(prefixKey string, mandatoryFlags []string, cmd *cobra.Command) {
-	unsetFlags := make([]string, 0, len(mandatoryFlags))
-	for _, f := range mandatoryFlags {
+func CheckRequiredFlags(prefixKey string, requiredFlags []string, cmd *cobra.Command) {
+	unsetFlags := make([]string, 0, len(requiredFlags))
+	for _, f := range requiredFlags {
 		if !viper.GetViper().IsSet(prefixKey + f) {
 			unsetFlags = append(unsetFlags, f)
 		}
