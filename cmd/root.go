@@ -126,3 +126,8 @@ func CheckRequiredFlags(prefixKey string, requiredFlags []string, cmd *cobra.Com
 		os.Exit(1)
 	}
 }
+
+// PrefixKey just prepends use to specified key name
+func PrefixKey(cmd *cobra.Command, keyName string) string {
+	return cmd.Use + "." + keyName
+}

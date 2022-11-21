@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	keyRaw          = "raw."
 	keyRawUtilities = "utilities"
 	keyRawTimeout   = "timeout"
 	keyRawRawOutput = "raw-output"
@@ -28,7 +27,7 @@ var rawCmd = &cobra.Command{
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		var commands []kubestrap.RawCommand
-		err := viper.UnmarshalKey(keyRaw+keyRawUtilities, &commands, func(config *mapstructure.DecoderConfig) {
+		err := viper.UnmarshalKey(PrefixKey(cmd, keyRawUtilities), &commands, func(config *mapstructure.DecoderConfig) {
 			config.TagName = "yaml"
 			config.ErrorUnused = true
 			//config.ErrorUnset = true
@@ -44,13 +43,13 @@ var rawCmd = &cobra.Command{
 		}
 		for _, c := range commands {
 			if c.Name == args[0] {
-				timeout := viper.GetViper().GetDuration(keyRaw + keyRawTimeout)
+				timeout := viper.GetViper().GetDuration(PrefixKey(cmd, keyRawTimeout))
 				logging.Logger.Debugf("timeout: %s", timeout)
 				remainingArgs := args[1:]
 				if len(remainingArgs) > 0 {
 					c.Arguments = remainingArgs
 				}
-				rawOutput := viper.GetViper().GetBool(keyRaw + keyRawRawOutput)
+				rawOutput := viper.GetViper().GetBool(PrefixKey(cmd, keyRawRawOutput))
 				if retCode, errExecute := c.ExecuteCommand(timeout, rawOutput, false); retCode != 0 {
 					logging.ExitOnError(errExecute, retCode)
 				}
@@ -68,7 +67,7 @@ func init() {
 
 	d, _ := time.ParseDuration("1m0s")
 	rawCmd.Flags().DurationP(keyRawTimeout, "t", d, "Timeout for executing raw command. After time passes, the command will be terminated")
-	viper.BindPFlag(keyRaw+keyRawTimeout, rawCmd.Flags().Lookup(keyRawTimeout))
+	viper.BindPFlag(PrefixKey(rawCmd, keyRawTimeout), rawCmd.Flags().Lookup(keyRawTimeout))
 	rawCmd.Flags().BoolP(keyRawRawOutput, "r", true, "Display raw output, outside of the logger")
-	viper.BindPFlag(keyRaw+keyRawRawOutput, rawCmd.Flags().Lookup(keyRawRawOutput))
+	viper.BindPFlag(PrefixKey(rawCmd, keyRawRawOutput), rawCmd.Flags().Lookup(keyRawRawOutput))
 }
