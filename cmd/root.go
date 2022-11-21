@@ -107,3 +107,22 @@ func initConfig() {
 
 	logging.Logger.SetLevel(logging.ParseLevel(viper.GetString("log-level")))
 }
+
+// CheckRequiredFlags exits with error when one ore more required flags are not set
+func CheckRequiredFlags(prefixKey string, mandatoryFlags []string, cmd *cobra.Command) {
+	unsetFlags := make([]string, 0, len(mandatoryFlags))
+	for _, f := range mandatoryFlags {
+		if !viper.GetViper().IsSet(prefixKey + f) {
+			unsetFlags = append(unsetFlags, f)
+		}
+	}
+	if len(unsetFlags) > 0 {
+		fmt.Fprintln(os.Stderr, "Error: required flags are not set:")
+		for _, f := range unsetFlags {
+			fmt.Fprintf(os.Stderr, "  --%s", f)
+		}
+		fmt.Fprintf(os.Stderr, "\n\n")
+		cmd.Usage()
+		os.Exit(1)
+	}
+}
