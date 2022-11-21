@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"runtime"
 	"strings"
@@ -268,28 +267,6 @@ func (command *RawCommand) ExeDir() (string, error) {
 		return "", logging.ErrWithTrace(errEnv)
 	}
 	return dir, nil
-}
-
-// GetStructFields gets a list of field names from current struct
-func (command *RawCommand) GetStructFields() []string {
-	ref := reflect.ValueOf(command)
-	fields := make([]string, ref.Type().NumField())
-	for i := 0; i < ref.Type().NumField(); i++ {
-		fields[i] = ref.Type().Field(i).Name
-	}
-	return fields
-}
-
-// GetStructValue gets value from struct field matching case insensitive by field name
-func (command *RawCommand) GetStructValue(name string) any {
-	name = strings.ToLower(name)
-	ref := reflect.ValueOf(command)
-	for i := 0; i < ref.Type().NumField(); i++ {
-		if strings.ToLower(ref.Type().Field(i).Name) == name {
-			return ref.Field(i).Interface()
-		}
-	}
-	return nil
 }
 
 // GetUrl returns platform specific url
