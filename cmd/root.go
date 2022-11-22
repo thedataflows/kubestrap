@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"dataflows.com/kubestrap/internal/pkg/files"
 	"dataflows.com/kubestrap/internal/pkg/kubestrap"
@@ -104,13 +105,18 @@ func initConfig() {
 			p = filepath.Dir(p)
 		}
 		viper.AddConfigPath(p)
-	}
-
-	if err := viper.MergeInConfig(); err != nil {
-		logging.Logger.Warnf("%s", err)
+		if err := viper.MergeInConfig(); err != nil {
+			logging.Logger.Warnf("%s", err)
+		}
 	}
 
 	logging.Logger.SetLevel(logging.ParseLevel(viper.GetString("log-level")))
+	if logging.Logger.Level == logging.TraceLevel {
+		logging.Logger.Debugln("====== begin viper configuration dump ======")
+		viper.DebugTo(logging.Logger.WriterLevel(logging.Logger.Level))
+		time.Sleep(100 * time.Millisecond)
+		logging.Logger.Debugln("====== end viper configuration dump ======")
+	}
 }
 
 // CheckRequiredFlags exits with error when one ore more required flags are not set
