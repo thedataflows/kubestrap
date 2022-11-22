@@ -24,10 +24,13 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"dataflows.com/kubestrap/internal/pkg/files"
+	"dataflows.com/kubestrap/internal/pkg/kubestrap"
 	"dataflows.com/kubestrap/internal/pkg/logging"
+	"golang.org/x/exp/slices"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -35,13 +38,13 @@ import (
 )
 
 const (
-	defaultConfigPath     = "./"
-	defaultConfigFileName = "kubestrap.yaml"
-	viperEnvPrefix        = "KS"
+	viperEnvPrefix  = "KS"
+	viperConfigType = "yaml"
 )
 
 var (
-	cfgFile string
+	userConfigPaths    []string
+	defaultConfigPaths = []string{"."}
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -66,42 +69,44 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
+	programPath, err := files.CurrentProcessPath()
+	logging.ExitOnError(err, 1)
+	viper.SetConfigName(files.TrimExtension(filepath.Base(programPath)))
+
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
 	flags := pflag.NewFlagSet("root", pflag.PanicOnError)
 	flags.StringP("log-level", "l", logging.InfoLevel.String(), fmt.Sprintf("Set log level to one of: %s", logging.LogLevelsStr))
-	flags.StringVar(&cfgFile, "config", defaultConfigPath+defaultConfigFileName, "Config file override")
+	flags.StringArrayVar(&userConfigPaths, "config", defaultConfigPaths, "Config file(s) or paths")
 
 	rootCmd.PersistentFlags().AddFlagSet(flags)
 	viper.BindPFlags(flags)
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		viper.AddConfigPath(defaultConfigPath)
-		configPath, err := files.AppHome("")
-		logging.ExitOnError(err, 1)
-		viper.AddConfigPath(configPath)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(files.TrimExtension(defaultConfigFileName))
-	}
-
 	viper.SetEnvPrefix(viperEnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv() // read in environment variables that match
 
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err != nil {
+	// viper.SetConfigType(viperConfigType)
+
+	if slices.Compare(userConfigPaths, defaultConfigPaths) == 0 {
+		configPath, _ := files.AppHome("")
+		userConfigPaths = append(userConfigPaths, configPath)
+	}
+	// Use config file from the flag.
+	for _, p := range userConfigPaths {
+		if files.IsFile(p) {
+			viper.SetConfigName(files.TrimExtension(filepath.Base(p)))
+			p = filepath.Dir(p)
+		}
+		viper.AddConfigPath(p)
+	}
+
+	if err := viper.MergeInConfig(); err != nil {
 		logging.Logger.Warnf("%s", err)
 	}
 
@@ -109,10 +114,10 @@ func initConfig() {
 }
 
 // CheckRequiredFlags exits with error when one ore more required flags are not set
-func CheckRequiredFlags(prefixKey string, requiredFlags []string, cmd *cobra.Command) {
+func CheckRequiredFlags(cmd *cobra.Command, requiredFlags []string) {
 	unsetFlags := make([]string, 0, len(requiredFlags))
 	for _, f := range requiredFlags {
-		if !viper.GetViper().IsSet(prefixKey + f) {
+		if !viper.GetViper().IsSet(PrefixKey(cmd, f)) {
 			unsetFlags = append(unsetFlags, f)
 		}
 	}
@@ -127,7 +132,15 @@ func CheckRequiredFlags(prefixKey string, requiredFlags []string, cmd *cobra.Com
 	}
 }
 
-// PrefixKey just prepends use to specified key name
+// PrefixKey prepends current and parent Use to specified key name
 func PrefixKey(cmd *cobra.Command, keyName string) string {
-	return cmd.Use + "." + keyName
+	parentKey := ""
+	for cmd != nil && cmd != cmd.Root() {
+		parentKey = kubestrap.ConcatStrings(cmd.Use, ".", parentKey)
+		cmd = cmd.Parent()
+	}
+	if keyName == "" && parentKey[len(parentKey)-1:] == "." {
+		return parentKey[:len(parentKey)-1]
+	}
+	return parentKey + keyName
 }
