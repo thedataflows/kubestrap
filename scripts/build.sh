@@ -11,8 +11,7 @@ EXT=
 
 (
   cd ${0%/*}/../
-  # TODO improve tag extraction
-  TAG=$(git tag --sort=-version:refname | head -n 1)
+  TAG=$(git for-each-ref refs/tags --sort=-taggerdate --format='%(refname:short)' --count=1 --points-at=HEAD)
   [[ -z "$TAG" ]] && TAG=dev
   go build \
     -ldflags "-s -w -X '$PROJECT_MODULE/cmd.version=$TAG'" \
