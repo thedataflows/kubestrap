@@ -22,8 +22,12 @@ const (
 
 var (
 	Logger     = logrus.New()
+	FatalLevel = logrus.FatalLevel
+	ErrorLevel = logrus.ErrorLevel
+	WarnLevel  = logrus.WarnLevel
 	InfoLevel  = logrus.InfoLevel
 	DebugLevel = logrus.DebugLevel
+	TraceLevel = logrus.TraceLevel
 )
 
 func init() {
