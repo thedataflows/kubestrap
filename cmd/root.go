@@ -31,7 +31,6 @@ import (
 	"dataflows.com/kubestrap/internal/pkg/files"
 	"dataflows.com/kubestrap/internal/pkg/kubestrap"
 	"dataflows.com/kubestrap/internal/pkg/logging"
-	"golang.org/x/exp/slices"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -46,6 +45,7 @@ const (
 var (
 	userConfigPaths    []string
 	defaultConfigPaths = []string{"."}
+	kubernetesConfig   = files.GetKubeconfigPath()
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -72,7 +72,12 @@ func init() {
 
 	programPath, err := files.CurrentProcessPath()
 	logging.ExitOnError(err, 1)
-	viper.SetConfigName(files.TrimExtension(filepath.Base(programPath)))
+	defaultConfigName := files.TrimExtension(filepath.Base(programPath))
+	viper.SetConfigName(defaultConfigName)
+
+	configPath, err := files.AppHome("")
+	logging.ExitOnError(err, 1)
+	defaultConfigPaths = append(defaultConfigPaths, configPath)
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
@@ -80,7 +85,13 @@ func init() {
 
 	flags := pflag.NewFlagSet("root", pflag.PanicOnError)
 	flags.StringP("log-level", "l", logging.InfoLevel.String(), fmt.Sprintf("Set log level to one of: %s", logging.LogLevelsStr))
-	flags.StringArrayVar(&userConfigPaths, "config", defaultConfigPaths, "Config file(s) or paths")
+	flags.StringArrayVar(
+		&userConfigPaths, "config", defaultConfigPaths, fmt.Sprintf(
+			"Config file(s) or directories. When just dirs, file '%s' with extensions '%s' is looked up. Can be specified multiple times",
+			defaultConfigName,
+			strings.Join(viper.SupportedExts, ", "),
+		),
+	)
 
 	rootCmd.PersistentFlags().AddFlagSet(flags)
 	viper.BindPFlags(flags)
@@ -94,10 +105,6 @@ func initConfig() {
 
 	// viper.SetConfigType(viperConfigType)
 
-	if slices.Compare(userConfigPaths, defaultConfigPaths) == 0 {
-		configPath, _ := files.AppHome("")
-		userConfigPaths = append(userConfigPaths, configPath)
-	}
 	// Use config file from the flag.
 	for _, p := range userConfigPaths {
 		if files.IsFile(p) {

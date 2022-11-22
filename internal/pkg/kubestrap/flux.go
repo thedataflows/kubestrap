@@ -1,5 +1,5 @@
 package kubestrap
 
-type FluxContext struct {
+type Flux struct {
 	Context string `yaml:"context"`
 }

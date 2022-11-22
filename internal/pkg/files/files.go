@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"dataflows.com/kubestrap/internal/pkg/logging"
 )
 
 const BUFFERSIZE = 1024
@@ -123,4 +125,16 @@ func CopyFile(src, dst string, BUFFERSIZE int64, overwrite bool) error {
 		}
 	}
 	return err
+}
+
+// GetKubeconfigPath returns path to kubernetes config file
+func GetKubeconfigPath() string {
+	kubeConfig := os.Getenv("KUBECONFIG")
+	if kubeConfig == "" {
+		kubeConfig = filepath.Join(os.Getenv("HOME"), "/.kube/config")
+	}
+	if !IsFile(kubeConfig) {
+		logging.Logger.Warnf("Kubernetes config '%s' is not a valid file\n", kubeConfig)
+	}
+	return kubeConfig
 }

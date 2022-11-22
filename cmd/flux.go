@@ -5,8 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"regexp"
 
 	"dataflows.com/kubestrap/internal/pkg/kubestrap"
@@ -16,7 +14,7 @@ import (
 )
 
 var (
-	typeFluxContext   = &kubestrap.FluxContext{}
+	typeFluxContext   = &kubestrap.Flux{}
 	keyFluxContext    = reflectutil.GetStructFieldTag(typeFluxContext, "Context")
 	requiredFluxFlags = []string{keyFluxContext}
 )
@@ -33,12 +31,8 @@ var fluxCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(fluxCmd)
 
-	kubeConfig := os.Getenv("KUBECONFIG")
-	if kubeConfig == "" {
-		kubeConfig = filepath.Join(os.Getenv("HOME"), "/.kube/config")
-	}
 	fluxCmd.PersistentFlags().StringP(
-		keyFluxContext, "c", "", fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubeConfig),
+		keyFluxContext, "c", "", fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetesConfig),
 	)
 	viper.BindPFlag(PrefixKey(fluxCmd, keyFluxContext), fluxCmd.PersistentFlags().Lookup(keyFluxContext))
 }
