@@ -12,6 +12,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -62,15 +63,11 @@ func RunRawCommand(cmd *cobra.Command, args []string) {
 		return
 	}
 	for _, c := range commands {
-		if c.Name == args[0] {
+		if c.Name == args[0] || slices.Contains(c.Additional, args[0]) {
 			timeout := viperGetDuration(cmd, keyRawTimeout)
 			logging.Logger.Debugf("execution timeout: %s", timeout)
-			remainingArgs := args[1:]
-			if len(remainingArgs) > 0 {
-				c.Arguments = remainingArgs
-			}
-			rawOutput := viperGetBool(cmd, keyRawRawOutput)
-			if retCode, errExecute := c.ExecuteCommand(timeout, rawOutput, false); retCode != 0 {
+			c.Command = args
+			if retCode, errExecute := c.ExecuteCommand(timeout, viperGetBool(cmd, keyRawRawOutput), false); errExecute != nil {
 				logging.ExitOnError(errExecute, retCode)
 			}
 			// Config allows for duplicates, but here we stop at the first match

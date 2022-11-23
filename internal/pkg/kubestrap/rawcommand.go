@@ -19,7 +19,8 @@ import (
 
 type RawCommand struct {
 	Name           string   `yaml:"name"`
-	Arguments      []string `yaml:"arguments,omitempty"`
+	Additional     []string `yaml:"additional"`
+	Command        []string `yaml:"command"`
 	VersionCommand string   `yaml:"version-command"`
 	Release        string   `yaml:"release"`
 	Url            struct {
@@ -37,11 +38,9 @@ type RawCommand struct {
 
 // ExecuteCommand attempts to execute an instance of a subcommand
 func (command *RawCommand) ExecuteCommand(timeout time.Duration, rawOutput bool, buffered bool) (int, error) {
-	exePath, errCheck := command.CheckCommand(timeout)
-	if errCheck != nil {
-		return -1, errCheck
-	}
-	status, errRun := RunProcess(exePath, command.Arguments, timeout, rawOutput, buffered)
+	logging.ExitOnError(command.CheckCommand(timeout), -1)
+
+	status, errRun := RunProcess(command.Command[0], command.Command[1:], timeout, rawOutput, buffered)
 	if errRun != nil {
 		return -2, logging.ErrWithTrace(errRun)
 	}
@@ -65,33 +64,40 @@ func (command *RawCommand) ExecuteCommand(timeout time.Duration, rawOutput bool,
 }
 
 // CheckCommand checks if the command exists in the PATH first, and if is at the specified version. Will attempt to download or get from filesystem and extract
-func (command *RawCommand) CheckCommand(timeout time.Duration) (string, error) {
+func (command *RawCommand) CheckCommand(timeout time.Duration) error {
 	// Call this to set PATH
 	_, errExeDir := command.ExeDir()
 	if errExeDir != nil {
-		return "", logging.ErrWithTrace(errExeDir)
+		return logging.ErrWithTrace(errExeDir)
 	}
 
-	getExe := false
-	// on Windows will look for any of {".com", ".exe", ".bat", ".cmd"}
-	exePath, errLookup := exec.LookPath(command.Name)
-	if errLookup != nil {
-		logging.Logger.Warnf("%s", errLookup)
-		getExe = true
-	} else {
+	getExe := true
+	commands := []string{command.Name}
+	commands = append(commands, command.Additional...)
+	var errLookup error
+	for _, p := range commands {
+		// on Windows will look for any of {".com", ".exe", ".bat", ".cmd"}
+		_, errLookup = exec.LookPath(p)
+		if errLookup == nil {
+			getExe = false
+			break
+		}
+	}
+
+	if !getExe {
 		// check version
 		if command.VersionCommand == "" {
 			command.VersionCommand = "version"
 		}
-		status, errRun := RunProcess(exePath, regexp.MustCompile(`\s+`).Split(command.VersionCommand, -1), timeout, true, true)
+		status, errRun := RunProcess(command.Name, regexp.MustCompile(`\s+`).Split(command.VersionCommand, -1), timeout, true, true)
 		if errRun != nil {
-			return "", logging.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%+v", command.Name, errRun))
+			return logging.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%+v", command.Name, errRun))
 		}
 		if status.Error != nil {
-			return "", logging.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%+v", command.Name, status.Error))
+			return logging.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%+v", command.Name, status.Error))
 		}
 		if status.Exit != 0 {
-			return "", logging.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%s", command.Name, strings.Join(status.Stderr, "\n")))
+			return logging.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%s", command.Name, strings.Join(status.Stderr, "\n")))
 		}
 		// some programs output version on stderr
 		output := strings.Join(append(status.Stdout, status.Stderr...), "")
@@ -104,19 +110,21 @@ func (command *RawCommand) CheckCommand(timeout time.Duration) (string, error) {
 	if getExe {
 		exeList, errEnsureExe := command.EnsureExe()
 		if errEnsureExe != nil {
-			return "", errEnsureExe
+			return errEnsureExe
 		}
+		exePath := ""
 		for _, b := range exeList {
 			if strings.HasSuffix(b, files.AppendExtension(command.Name)) {
 				exePath = b
 				break
 			}
 		}
+		if exePath == "" {
+			return fmt.Errorf("'%s' not found", files.AppendExtension(command.Name))
+		}
 	}
-	if exePath == "" {
-		return "", fmt.Errorf("%s not found", files.AppendExtension(command.Name))
-	}
-	return exePath, nil
+
+	return nil
 }
 
 // EnsureExe will download and extract (if needed) specified or default version of an executable

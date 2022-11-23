@@ -38,6 +38,8 @@ raw:
     version-command: version --client
   - name: age
     release: v1.0.0
+    additional:
+      - age-keygen
     url:
       windows: https://github.com/FiloSottile/age/releases/download/{{release}}/{{name}}-{{release}}-{{os}}-{{arch}}.zip
       linux: &linux https://github.com/FiloSottile/age/releases/download/{{release}}/{{name}}-{{release}}-{{os}}-{{arch}}.tar.gz
