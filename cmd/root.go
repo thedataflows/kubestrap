@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -126,11 +127,11 @@ func initConfig() {
 	}
 }
 
-// CheckRequiredFlags exits with error when one ore more required flags are not set
-func CheckRequiredFlags(cmd *cobra.Command, requiredFlags []string) {
+// checkRequiredFlags exits with error when one ore more required flags are not set
+func checkRequiredFlags(cmd *cobra.Command, requiredFlags []string) {
 	unsetFlags := make([]string, 0, len(requiredFlags))
 	for _, f := range requiredFlags {
-		if !viper.GetViper().IsSet(PrefixKey(cmd, f)) {
+		if !viper.GetViper().IsSet(prefixKey(cmd, f)) {
 			unsetFlags = append(unsetFlags, f)
 		}
 	}
@@ -145,8 +146,8 @@ func CheckRequiredFlags(cmd *cobra.Command, requiredFlags []string) {
 	}
 }
 
-// PrefixKey prepends current and parent Use to specified key name
-func PrefixKey(cmd *cobra.Command, keyName string) string {
+// prefixKey prepends current and parent Use to specified key name
+func prefixKey(cmd *cobra.Command, keyName string) string {
 	parentKey := ""
 	for cmd != nil && cmd != cmd.Root() {
 		parentKey = kubestrap.ConcatStrings(cmd.Use, ".", parentKey)
@@ -156,4 +157,40 @@ func PrefixKey(cmd *cobra.Command, keyName string) string {
 		return parentKey[:len(parentKey)-1]
 	}
 	return parentKey + keyName
+}
+
+// appendStringArgsf appends viper value to existing args slice with optional formatted output with key and value
+func appendStringArgsf(cmd *cobra.Command, args []string, key string, format string) []string {
+	val := viper.GetViper().GetString(prefixKey(cmd, key))
+	if val != "" {
+		args = append(args, fmt.Sprintf(format, key, val))
+	}
+	return args
+}
+
+// appendStringArgs appends viper value to existing args slice
+func appendStringArgs(cmd *cobra.Command, args []string, key string) []string {
+	return appendStringArgsf(cmd, args, key, "")
+}
+
+// appendSplitArgs appends viper value to existing args slice after splitting them by splitPattern (default regex whitespace)
+func appendStringSplitArgs(cmd *cobra.Command, args []string, key string, splitPattern string) []string {
+	if splitPattern == "" {
+		splitPattern = `\s+`
+	}
+	val := viper.GetViper().GetString(prefixKey(cmd, key))
+	if val != "" {
+		args = append(args, regexp.MustCompile(splitPattern).Split(val, -1)...)
+	}
+	return args
+}
+
+// viperBindPFlag is a convenience wrapper over viper.BindPFlag for local flags
+func viperBindPFlag(cmd *cobra.Command, name string) {
+	viper.BindPFlag(prefixKey(cmd, name), cmd.Flags().Lookup(name))
+}
+
+// viperBindPersistentPFlag is a convenience wrapper over viper.BindPFlag for persistent flags
+func viperBindPersistentPFlag(cmd *cobra.Command, name string) {
+	viper.BindPFlag(prefixKey(cmd, name), cmd.PersistentFlags().Lookup(name))
 }

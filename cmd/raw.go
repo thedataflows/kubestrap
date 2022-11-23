@@ -32,16 +32,21 @@ func init() {
 	rootCmd.AddCommand(rawCmd)
 
 	d, _ := time.ParseDuration("1m0s")
-	rawCmd.Flags().DurationP(keyRawTimeout, "t", d, "Timeout for executing raw command. After time elapses, the command will be terminated")
-	viper.BindPFlag(PrefixKey(rawCmd, keyRawTimeout), rawCmd.Flags().Lookup(keyRawTimeout))
-	rawCmd.Flags().BoolP(keyRawRawOutput, "r", true, "Display raw output, outside of the logger")
-	viper.BindPFlag(PrefixKey(rawCmd, keyRawRawOutput), rawCmd.Flags().Lookup(keyRawRawOutput))
+	rawCmd.Flags().DurationP(
+		keyRawTimeout, "t", d, "Timeout for executing raw command. After time elapses, the command will be terminated",
+	)
+	viperBindPFlag(rawCmd, keyRawTimeout)
+
+	rawCmd.Flags().BoolP(
+		keyRawRawOutput, "r", true, "Display raw output, outside of the logger",
+	)
+	viperBindPFlag(rawCmd, keyRawRawOutput)
 }
 
 // RunRawCommand unmarshal commands and executes with provided arguments
 func RunRawCommand(cmd *cobra.Command, args []string) {
 	var commands []kubestrap.RawCommand
-	err := viper.UnmarshalKey(PrefixKey(cmd, keyRawUtilities), &commands, func(config *mapstructure.DecoderConfig) {
+	err := viper.UnmarshalKey(prefixKey(cmd, keyRawUtilities), &commands, func(config *mapstructure.DecoderConfig) {
 		config.TagName = "yaml"
 		config.ErrorUnused = true
 		//config.ErrorUnset = true
@@ -57,13 +62,13 @@ func RunRawCommand(cmd *cobra.Command, args []string) {
 	}
 	for _, c := range commands {
 		if c.Name == args[0] {
-			timeout := viper.GetViper().GetDuration(PrefixKey(cmd, keyRawTimeout))
+			timeout := viper.GetViper().GetDuration(prefixKey(cmd, keyRawTimeout))
 			logging.Logger.Debugf("execution timeout: %s", timeout)
 			remainingArgs := args[1:]
 			if len(remainingArgs) > 0 {
 				c.Arguments = remainingArgs
 			}
-			rawOutput := viper.GetViper().GetBool(PrefixKey(cmd, keyRawRawOutput))
+			rawOutput := viper.GetViper().GetBool(prefixKey(cmd, keyRawRawOutput))
 			if retCode, errExecute := c.ExecuteCommand(timeout, rawOutput, false); retCode != 0 {
 				logging.ExitOnError(errExecute, retCode)
 			}

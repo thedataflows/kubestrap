@@ -5,18 +5,18 @@ package cmd
 
 import (
 	"fmt"
-	"regexp"
 
 	"dataflows.com/kubestrap/internal/pkg/kubestrap"
 	"dataflows.com/kubestrap/internal/pkg/reflectutil"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var (
-	typeFluxContext   = &kubestrap.Flux{}
-	keyFluxContext    = reflectutil.GetStructFieldTag(typeFluxContext, "Context")
+	typeFlux          = &kubestrap.Flux{}
+	keyFluxContext    = reflectutil.GetStructFieldTag(typeFlux, "Context")
+	keyFluxNamespace  = reflectutil.GetStructFieldTag(typeFlux, "Namespace")
 	requiredFluxFlags = []string{keyFluxContext}
+	fluxNamespace     string
 )
 
 // fluxCmd represents the flux command
@@ -34,25 +34,26 @@ func init() {
 	fluxCmd.PersistentFlags().StringP(
 		keyFluxContext, "c", "", fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetesConfig),
 	)
-	viper.BindPFlag(PrefixKey(fluxCmd, keyFluxContext), fluxCmd.PersistentFlags().Lookup(keyFluxContext))
+	viperBindPersistentPFlag(fluxCmd, keyFluxContext)
+
+	fluxCmd.PersistentFlags().StringVarP(
+		&fluxNamespace,
+		keyFluxNamespace, "n", "flux-system", "Kubernetes namespace for FluxCD",
+	)
+	viperBindPersistentPFlag(fluxCmd, keyFluxNamespace)
 }
 
 // RunFluxCommand runs flux subcommands with appropriate context
 func RunFluxCommand(cmd *cobra.Command, args []string) {
-	CheckRequiredFlags(cmd.Parent(), requiredFluxFlags)
+	checkRequiredFlags(cmd.Parent(), requiredFluxFlags)
 
 	newArgs := []string{cmd.Parent().Use, cmd.Use}
-	context := viper.GetViper().GetString(PrefixKey(cmd.Parent(), keyFluxContext))
-	if context != "" {
-		newArgs = append(newArgs, fmt.Sprintf("--%s=%s", keyFluxContext, context))
-	}
+	newArgs = appendStringArgsf(cmd.Parent(), newArgs, keyFluxContext, "--%s=%s")
 	if len(args) > 0 {
 		newArgs = append(newArgs, args...)
 	} else {
-		arguments := viper.GetViper().GetString(PrefixKey(cmd, ""))
-		if arguments != "" {
-			newArgs = append(newArgs, regexp.MustCompile(`\s+`).Split(arguments, -1)...)
-		}
+		newArgs = appendStringSplitArgs(cmd, newArgs, "", "")
+		newArgs = appendStringArgsf(cmd.Parent(), newArgs, keyFluxNamespace, "--%s=%s")
 	}
 	RunRawCommand(rawCmd, newArgs)
 }
