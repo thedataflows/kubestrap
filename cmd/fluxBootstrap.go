@@ -9,10 +9,11 @@ import (
 
 // fluxBootstrapCmd represents the fluxBootstrap command
 var fluxBootstrapCmd = &cobra.Command{
-	Use:   "bootstrap",
-	Short: "Bootstrap or upgrade FluxCD",
-	Long:  ``,
-	Run:   RunFluxCommand,
+	Use:     "bootstrap",
+	Short:   "Bootstrap or upgrade FluxCD",
+	Long:    ``,
+	Run:     RunFluxCommand,
+	Aliases: []string{"bs"},
 }
 
 func init() {

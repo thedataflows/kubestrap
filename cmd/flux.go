@@ -26,6 +26,7 @@ var fluxCmd = &cobra.Command{
 	Long:  ``,
 	// Run: func(cmd *cobra.Command, args []string) {
 	// },
+	Aliases: []string{"f"},
 }
 
 func init() {

@@ -9,10 +9,11 @@ import (
 
 // fluxReconcileCmd represents the fluxBootstrap command
 var fluxReconcileCmd = &cobra.Command{
-	Use:   "reconcile",
-	Short: "Reconcile FluxCD",
-	Long:  ``,
-	Run:   RunFluxCommand,
+	Use:     "reconcile",
+	Short:   "Reconcile FluxCD",
+	Long:    ``,
+	Run:     RunFluxCommand,
+	Aliases: []string{"r"},
 }
 
 func init() {

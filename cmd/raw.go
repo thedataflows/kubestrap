@@ -22,10 +22,11 @@ const (
 
 // rawCmd represents the raw command
 var rawCmd = &cobra.Command{
-	Use:   "raw",
-	Short: "Directly run one of the predefined utilities. To pass flags for the raw command, use --",
-	Long:  ``,
-	Run:   RunRawCommand,
+	Use:     "raw",
+	Short:   "Directly run one of the predefined utilities. To pass flags for the raw command, use --",
+	Long:    ``,
+	Run:     RunRawCommand,
+	Aliases: []string{"r"},
 }
 
 func init() {
