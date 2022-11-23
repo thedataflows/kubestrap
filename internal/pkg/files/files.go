@@ -131,7 +131,11 @@ func CopyFile(src, dst string, BUFFERSIZE int64, overwrite bool) error {
 func GetKubeconfigPath() string {
 	kubeConfig := os.Getenv("KUBECONFIG")
 	if kubeConfig == "" {
-		kubeConfig = filepath.Join(os.Getenv("HOME"), "/.kube/config")
+		env := "HOME"
+		if runtime.GOOS == "windows" {
+			env = "USERPROFILE"
+		}
+		kubeConfig = filepath.Join(os.Getenv(env), "/.kube/config")
 	}
 	if !IsFile(kubeConfig) {
 		logging.Logger.Warnf("Kubernetes config '%s' is not a valid file\n", kubeConfig)
