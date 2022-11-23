@@ -120,10 +120,10 @@ func initConfig() {
 
 	logging.Logger.SetLevel(logging.ParseLevel(viper.GetString("log-level")))
 	if logging.Logger.Level == logging.TraceLevel {
-		logging.Logger.Debugln("====== begin viper configuration dump ======")
+		logging.Logger.Traceln("====== begin viper configuration dump ======")
 		viper.DebugTo(logging.Logger.WriterLevel(logging.Logger.Level))
 		time.Sleep(100 * time.Millisecond)
-		logging.Logger.Debugln("====== end viper configuration dump ======")
+		logging.Logger.Traceln("====== end viper configuration dump ======")
 	}
 }
 
