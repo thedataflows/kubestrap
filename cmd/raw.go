@@ -63,13 +63,13 @@ func RunRawCommand(cmd *cobra.Command, args []string) {
 	}
 	for _, c := range commands {
 		if c.Name == args[0] {
-			timeout := viper.GetViper().GetDuration(prefixKey(cmd, keyRawTimeout))
+			timeout := viperGetDuration(cmd, keyRawTimeout)
 			logging.Logger.Debugf("execution timeout: %s", timeout)
 			remainingArgs := args[1:]
 			if len(remainingArgs) > 0 {
 				c.Arguments = remainingArgs
 			}
-			rawOutput := viper.GetViper().GetBool(prefixKey(cmd, keyRawRawOutput))
+			rawOutput := viperGetBool(cmd, keyRawRawOutput)
 			if retCode, errExecute := c.ExecuteCommand(timeout, rawOutput, false); retCode != 0 {
 				logging.ExitOnError(errExecute, retCode)
 			}

@@ -86,7 +86,7 @@ func init() {
 
 	flags := pflag.NewFlagSet("root", pflag.PanicOnError)
 	flags.StringP("log-level", "l", logging.InfoLevel.String(), fmt.Sprintf("Set log level to one of: %s", logging.LogLevelsStr))
-	flags.StringArrayVar(
+	flags.StringSliceVar(
 		&userConfigPaths, "config", defaultConfigPaths, fmt.Sprintf(
 			"Config file(s) or directories. When just dirs, file '%s' with extensions '%s' is looked up. Can be specified multiple times",
 			defaultConfigName,
@@ -129,15 +129,15 @@ func initConfig() {
 
 // checkRequiredFlags exits with error when one ore more required flags are not set
 func checkRequiredFlags(cmd *cobra.Command, requiredFlags []string) {
-	unsetFlags := make([]string, 0, len(requiredFlags))
+	neededFlags := make([]string, 0, len(requiredFlags))
 	for _, f := range requiredFlags {
-		if !viper.GetViper().IsSet(prefixKey(cmd, f)) {
-			unsetFlags = append(unsetFlags, f)
+		if viperIsSet(cmd, f) {
+			neededFlags = append(neededFlags, f)
 		}
 	}
-	if len(unsetFlags) > 0 {
+	if len(neededFlags) > 0 {
 		fmt.Fprintln(os.Stderr, "Error: required flags are not set:")
-		for _, f := range unsetFlags {
+		for _, f := range neededFlags {
 			fmt.Fprintf(os.Stderr, "  --%s\n", f)
 		}
 		fmt.Fprintf(os.Stderr, "\n")
@@ -161,7 +161,7 @@ func prefixKey(cmd *cobra.Command, keyName string) string {
 
 // appendStringArgsf appends viper value to existing args slice with optional formatted output with key and value
 func appendStringArgsf(cmd *cobra.Command, args []string, key string, format string) []string {
-	val := viper.GetViper().GetString(prefixKey(cmd, key))
+	val := viperGetString(cmd, key)
 	if val != "" {
 		args = append(args, fmt.Sprintf(format, key, val))
 	}
@@ -178,7 +178,7 @@ func appendStringSplitArgs(cmd *cobra.Command, args []string, key string, splitP
 	if splitPattern == "" {
 		splitPattern = `\s+`
 	}
-	val := viper.GetViper().GetString(prefixKey(cmd, key))
+	val := viperGetString(cmd, key)
 	if val != "" {
 		args = append(args, regexp.MustCompile(splitPattern).Split(val, -1)...)
 	}
@@ -193,4 +193,24 @@ func viperBindPFlag(cmd *cobra.Command, name string) {
 // viperBindPersistentPFlag is a convenience wrapper over viper.BindPFlag for persistent flags
 func viperBindPersistentPFlag(cmd *cobra.Command, name string) {
 	viper.BindPFlag(prefixKey(cmd, name), cmd.PersistentFlags().Lookup(name))
+}
+
+// viperGetString is a convenience wrapper returning string value
+func viperGetString(cmd *cobra.Command, key string) string {
+	return viper.GetViper().GetString(prefixKey(cmd, key))
+}
+
+// viperGetDuration is a convenience wrapper returning duration value
+func viperGetDuration(cmd *cobra.Command, key string) time.Duration {
+	return viper.GetViper().GetDuration(prefixKey(cmd, key))
+}
+
+// viperGetBool is a convenience wrapper returning bool value
+func viperGetBool(cmd *cobra.Command, key string) bool {
+	return viper.GetViper().GetBool(prefixKey(cmd, key))
+}
+
+// viperIsSet is a convenience wrapper returning true if a key is set
+func viperIsSet(cmd *cobra.Command, key string) bool {
+	return viper.GetViper().IsSet(prefixKey(cmd, key))
 }
