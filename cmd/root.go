@@ -131,7 +131,7 @@ func initConfig() {
 func checkRequiredFlags(cmd *cobra.Command, requiredFlags []string) {
 	neededFlags := make([]string, 0, len(requiredFlags))
 	for _, f := range requiredFlags {
-		if viperIsSet(cmd, f) {
+		if !viperIsSet(cmd, f) {
 			neededFlags = append(neededFlags, f)
 		}
 	}
