@@ -14,6 +14,7 @@ import (
 	"dataflows.com/kubestrap/internal/pkg/files"
 	"dataflows.com/kubestrap/internal/pkg/installer"
 	"dataflows.com/kubestrap/internal/pkg/logging"
+	"github.com/go-cmd/cmd"
 	"golang.org/x/exp/slices"
 )
 
@@ -38,11 +39,22 @@ type RawCommand struct {
 
 // ExecuteCommand attempts to execute an instance of a subcommand
 func (command *RawCommand) ExecuteCommand(timeout time.Duration, rawOutput bool, buffered bool) (int, error) {
+	// Call this to set PATH
+	_, errExeDir := command.ExeDir()
+	if errExeDir != nil {
+		return -1, logging.ErrWithTrace(errExeDir)
+	}
+
 	logging.ExitOnError(command.CheckCommand(timeout), -1)
 
-	status, errRun := RunProcess(command.Command[0], command.Command[1:], timeout, rawOutput, buffered)
+	exePath, errLookup := exec.LookPath(command.Command[0])
+	if errLookup != nil {
+		return -2, logging.ErrWithTrace(errLookup)
+	}
+
+	status, errRun := RunProcess(exePath, command.Command[1:], timeout, rawOutput, buffered)
 	if errRun != nil {
-		return -2, logging.ErrWithTrace(errRun)
+		return -3, logging.ErrWithTrace(errRun)
 	}
 	if buffered {
 		for _, line := range status.Stdout {
@@ -65,63 +77,62 @@ func (command *RawCommand) ExecuteCommand(timeout time.Duration, rawOutput bool,
 
 // CheckCommand checks if the command exists in the PATH first, and if is at the specified version. Will attempt to download or get from filesystem and extract
 func (command *RawCommand) CheckCommand(timeout time.Duration) error {
-	// Call this to set PATH
-	_, errExeDir := command.ExeDir()
-	if errExeDir != nil {
-		return logging.ErrWithTrace(errExeDir)
+	var (
+		output string
+		status *cmd.Status
+		errRun error
+	)
+
+	commandExePath, errLookup := exec.LookPath(command.Name)
+	if errLookup != nil {
+		goto getExe
 	}
 
-	getExe := true
-	commands := []string{command.Name}
-	commands = append(commands, command.Additional...)
-	var errLookup error
-	for _, p := range commands {
-		// on Windows will look for any of {".com", ".exe", ".bat", ".cmd"}
-		_, errLookup = exec.LookPath(p)
-		if errLookup == nil {
-			getExe = false
+	// check version
+	if command.VersionCommand == "" {
+		command.VersionCommand = "version"
+	}
+	status, errRun = RunProcess(commandExePath, regexp.MustCompile(`\s+`).Split(command.VersionCommand, -1), timeout, true, true)
+	if errRun != nil {
+		return logging.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%+v", command.Name, errRun))
+	}
+	if status.Error != nil {
+		return logging.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%+v", command.Name, status.Error))
+	}
+	if status.Exit != 0 {
+		return logging.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%s", command.Name, strings.Join(status.Stderr, "\n")))
+	}
+	// some programs output version on stderr
+	output = strings.Join(append(status.Stdout, status.Stderr...), "")
+	if !strings.Contains(output, command.Release) {
+		logging.Logger.Warnf("release '%s' was not matched in version command output:\n%s", command.Release, output)
+		goto getExe
+	}
+
+	for i, p := range command.Additional {
+		_, errLookup := exec.LookPath(p)
+		if errLookup != nil {
+			break
+		}
+		if i == len(command.Additional)-1 {
+			return nil
+		}
+	}
+
+getExe:
+	exeList, errEnsureExe := command.EnsureExe()
+	if errEnsureExe != nil {
+		return errEnsureExe
+	}
+	exePath := ""
+	for _, b := range exeList {
+		if strings.HasSuffix(b, files.AppendExtension(command.Name)) {
+			exePath = b
 			break
 		}
 	}
-
-	if !getExe {
-		// check version
-		if command.VersionCommand == "" {
-			command.VersionCommand = "version"
-		}
-		status, errRun := RunProcess(command.Name, regexp.MustCompile(`\s+`).Split(command.VersionCommand, -1), timeout, true, true)
-		if errRun != nil {
-			return logging.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%+v", command.Name, errRun))
-		}
-		if status.Error != nil {
-			return logging.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%+v", command.Name, status.Error))
-		}
-		if status.Exit != 0 {
-			return logging.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%s", command.Name, strings.Join(status.Stderr, "\n")))
-		}
-		// some programs output version on stderr
-		output := strings.Join(append(status.Stdout, status.Stderr...), "")
-		getExe = !strings.Contains(output, command.Release)
-		if getExe {
-			logging.Logger.Warnf("release '%s' was not matched in version command output:\n%s", command.Release, output)
-		}
-	}
-
-	if getExe {
-		exeList, errEnsureExe := command.EnsureExe()
-		if errEnsureExe != nil {
-			return errEnsureExe
-		}
-		exePath := ""
-		for _, b := range exeList {
-			if strings.HasSuffix(b, files.AppendExtension(command.Name)) {
-				exePath = b
-				break
-			}
-		}
-		if exePath == "" {
-			return fmt.Errorf("'%s' not found", files.AppendExtension(command.Name))
-		}
+	if exePath == "" {
+		return fmt.Errorf("'%s' not found", files.AppendExtension(command.Name))
 	}
 
 	return nil
@@ -164,9 +175,15 @@ cache:
 	}
 	// cache valid and is a directory
 	if cachePathStat != nil && cachePathStat.IsDir() {
-		exePath := filepath.Join(cachePath, files.AppendExtension(command.Name))
-		if files.IsAccessible(exePath) {
-			return []string{exePath}, nil
+		commands := append([]string{command.Name}, command.Additional...)
+		for i, c := range commands {
+			if !files.IsAccessible(filepath.Join(cachePath, files.AppendExtension(c))) {
+				// If one of the commands is not found, should download again
+				break
+			}
+			if i == len(commands)-1 {
+				return commands, nil
+			}
 		}
 		if parsedUrl.Path == "" {
 			return nil, logging.ErrWithTrace(fmt.Errorf("'cache-path=%s' is a directory but 'url.%s' is empty", cachePath, runtime.GOOS))
@@ -183,7 +200,7 @@ cache:
 		// speed up by checking for no extension or .exe on Windows
 		extensions := []string{""}
 		if runtime.GOOS == "windows" {
-			extensions = []string{"", ".exe"}
+			extensions = []string{".exe"}
 		}
 		if slices.Contains(extensions, filepath.Ext(cachePath)) {
 			exePath := filepath.Join(exeDir, files.AppendExtension(command.Name))
