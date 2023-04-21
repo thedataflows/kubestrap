@@ -38,37 +38,16 @@ var secretsCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(secretsCmd)
 
-	secretsCmd.PersistentFlags().StringP(
-		keySecretsContext, "c", "", fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetes.GetKubeconfigPath()),
-	)
-	config.ViperBindPersistentPFlag(secretsCmd, keySecretsContext)
-
-	secretsCmd.PersistentFlags().StringP(
-		keySecretsNamespace, "n", "flux-system", "Kubernetes namespace for Secrets",
-	)
-	config.ViperBindPersistentPFlag(secretsCmd, keySecretsNamespace)
-
+	secretsCmd.PersistentFlags().StringP(keySecretsContext, "c", "", fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetes.GetKubeconfigPath()))
+	secretsCmd.PersistentFlags().StringP(keySecretsNamespace, "n", "flux-system", "Kubernetes namespace for Secrets")
 	var secretsDir string
-	secretsCmd.PersistentFlags().StringVarP(
-		&secretsDir, keySecretsDir, "d", "secrets", "Encrypted secrets directory",
-	)
-	config.ViperBindPersistentPFlag(secretsCmd, keySecretsDir)
-
+	secretsCmd.PersistentFlags().StringVarP(&secretsDir, keySecretsDir, "d", "secrets", "Encrypted secrets directory")
 	context := config.ViperGetString(secretsCmd, keySecretsContext)
 	if context == "" {
 		context = defaultContextForUsage
 	}
-	secretsCmd.PersistentFlags().String(
-		keySecretsPrivateKey, kubestrap.ConcatStrings(
-			secretsDir, "/", context, ".private.age",
-		), "Private key",
-	)
-	config.ViperBindPersistentPFlag(secretsCmd, keySecretsPrivateKey)
+	secretsCmd.PersistentFlags().String(keySecretsPrivateKey, kubestrap.ConcatStrings(secretsDir, "/", context, ".private.age"), "Private key")
+	secretsCmd.PersistentFlags().String(keySecretsPublicKey, kubestrap.ConcatStrings(secretsDir, "/", context, ".public.age"), "Public key")
 
-	secretsCmd.PersistentFlags().String(
-		keySecretsPublicKey, kubestrap.ConcatStrings(
-			secretsDir, "/", context, ".public.age",
-		), "Public key",
-	)
-	config.ViperBindPersistentPFlag(secretsCmd, keySecretsPublicKey)
+	config.ViperBindPFlagSet(secretsCmd, nil)
 }

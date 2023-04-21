@@ -13,8 +13,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const ()
-
 var (
 	// rootCmd represents the base command when called without any subcommands
 	rootCmd = &cobra.Command{

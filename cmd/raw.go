@@ -35,15 +35,10 @@ func init() {
 	rootCmd.AddCommand(rawCmd)
 
 	d, _ := time.ParseDuration("1m0s")
-	rawCmd.Flags().DurationP(
-		keyRawTimeout, "t", d, "Timeout for executing raw command. After time elapses, the command will be terminated",
-	)
-	config.ViperBindPFlag(rawCmd, keyRawTimeout)
+	rawCmd.Flags().DurationP(keyRawTimeout, "t", d, "Timeout for executing raw command. After time elapses, the command will be terminated")
+	rawCmd.Flags().BoolP(keyRawRawOutput, "r", true, "Display raw output, outside of the logger")
 
-	rawCmd.Flags().BoolP(
-		keyRawRawOutput, "r", true, "Display raw output, outside of the logger",
-	)
-	config.ViperBindPFlag(rawCmd, keyRawRawOutput)
+	config.ViperBindPFlagSet(rawCmd, nil)
 }
 
 // RunRawCommand unmarshal commands and executes with provided arguments
@@ -56,7 +51,7 @@ func RunRawCommand(cmd *cobra.Command, args []string) {
 	})
 	log.Fatal(err)
 	if len(args) == 0 {
-		cmd.Help()
+		_ = cmd.Help()
 		fmt.Printf("\nAvailable utilities:\n")
 		for _, c := range commands {
 			fmt.Printf("  - %s %s\n", c.Name, c.Release)

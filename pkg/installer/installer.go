@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"time"
@@ -44,7 +43,7 @@ Loop:
 		case <-t.C:
 			log.Infof("  %d / %d bytes (%.2f%%)\n",
 				resp.BytesComplete(),
-				resp.Size,
+				resp.Size(),
 				100*resp.Progress())
 		case <-resp.Done:
 			// download is complete
@@ -178,25 +177,4 @@ func WriteExtractedFile(source archiver.File, destination string) error {
 		}
 	}
 	return err
-}
-
-// ExtractFilesZip extracts files from zip archive
-//
-// Deprecated: replaced by generic ExtractFiles()
-func ExtractFilesZip(archivePath, destination string, filesToDecompress []string, stripPath bool) ([]string, error) {
-	// TODO maybe check based on mime type instead of simple extension?
-	switch filepath.Ext(archivePath) {
-	case ".zip":
-		uz := NewUnzip()
-		if destination == "" {
-			destination, _ = os.Getwd()
-		}
-		files, err := uz.Extract(archivePath, destination, filesToDecompress, stripPath)
-		if err != nil {
-			return nil, err
-		}
-		return files, nil
-	default:
-		return nil, fmt.Errorf("decompression not yet implemented for '%s'", path.Ext(archivePath))
-	}
 }
