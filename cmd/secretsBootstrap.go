@@ -45,8 +45,9 @@ var secretsBootstrapCmd = &cobra.Command{
 			found := finder.Grep(privateKey)
 			if found == nil {
 				log.Warnf("Error determining '%s' is encrypted", privateKey)
+			} else {
+				encrypt = len(found.Results) > 0
 			}
-			encrypt = len(found.Results) > 0
 		}
 		if encrypt {
 			// Encrypt the private key in place
