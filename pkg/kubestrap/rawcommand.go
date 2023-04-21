@@ -200,7 +200,7 @@ cache:
 	if cachePathStat != nil && !cachePathStat.IsDir() {
 		// speed up by checking for no extension or .exe on Windows
 		extensions := []string{""}
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == constants.Windows {
 			extensions = []string{".exe"}
 		}
 		if slices.Contains(extensions, filepath.Ext(cachePath)) {
@@ -299,11 +299,11 @@ func (command *RawCommand) ExeDir() (string, error) {
 func (command *RawCommand) GetUrl() (*url.URL, error) {
 	var retUrl string
 	switch runtime.GOOS {
-	case "windows":
+	case constants.Windows:
 		retUrl = command.Url.Windows
-	case "linux":
+	case constants.Linux:
 		retUrl = command.Url.Linux
-	case "darwin":
+	case constants.Darwin:
 		retUrl = command.Url.Darwin
 	default:
 		return nil, fmt.Errorf("unsupported platform '%s'", runtime.GOOS)

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/thedataflows/go-commons/pkg/log"
+	"github.com/thedataflows/kubestrap/pkg/constants"
 
 	"github.com/go-cmd/cmd"
 	"github.com/shirou/gopsutil/v3/process"
@@ -77,8 +78,8 @@ func RunProcess(exePath string, args []string, timeout time.Duration, rawOutput 
 	// Stop command after specified timeout
 	go func() {
 		<-time.After(timeout)
-		currentCmd.Stop()
-		log.Errorf("[%s] timeout running subcommand after %v", exeName, timeout)
+		err := currentCmd.Stop()
+		log.Errorf("[%s] timeout running subcommand after %v. Error: %v", exeName, timeout, err)
 	}()
 
 	// Run and wait for Cmd to return
@@ -126,7 +127,7 @@ func SetEnvPath(element string, before bool) error {
 	}
 	path := os.Getenv("PATH")
 	delim := ":"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == constants.Windows {
 		delim = ";"
 	}
 	env := ConcatStrings(path, delim, element)
