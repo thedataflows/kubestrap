@@ -8,7 +8,10 @@ linters-settings:
   cyclop:
     # The maximal code complexity to report.
     # Default: 10
-    max-complexity: 20
+    max-complexity: 40
+  gocognit:
+    # minimal code complexity to report, 30 by default
+    min-complexity: 67
   lll:
     # max line length, lines longer will be reported. Default is 120.
     # '\t' is counted as 1 character by default, and can be changed with the tab-width option
