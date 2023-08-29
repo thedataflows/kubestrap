@@ -6,4 +6,5 @@ const (
 	Windows        = "windows"
 	Linux          = "linux"
 	Darwin         = "darwin"
+	DefaultConfig  = "/defaults.yaml"
 )

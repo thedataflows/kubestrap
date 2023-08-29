@@ -5,10 +5,12 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/thedataflows/go-commons/pkg/config"
 	"github.com/thedataflows/go-commons/pkg/reflectutil"
+	"github.com/thedataflows/kubestrap/pkg/constants"
 	"github.com/thedataflows/kubestrap/pkg/kubernetes"
 	"github.com/thedataflows/kubestrap/pkg/kubestrap"
 )
@@ -34,7 +36,7 @@ var fluxCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(fluxCmd)
 
-	fluxCmd.PersistentFlags().StringP(keyFluxContext, "c", "", fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetes.GetKubeconfigPath()))
+	fluxCmd.PersistentFlags().StringP(keyFluxContext, "c", os.Getenv(constants.ViperEnvPrefix+"_FLUX_"+keyFluxContext), fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetes.GetKubeconfigPath()))
 	fluxCmd.PersistentFlags().StringVarP(&fluxNamespace, keyFluxNamespace, "n", "flux-system", "Kubernetes namespace for FluxCD")
 
 	config.ViperBindPFlagSet(fluxCmd, nil)
@@ -49,8 +51,8 @@ func RunFluxCommand(cmd *cobra.Command, args []string) {
 	if len(args) > 0 {
 		newArgs = append(newArgs, args...)
 	} else {
+		newArgs = append(newArgs, fmt.Sprintf("--%s=%s", keyFluxNamespace, fluxNamespace))
 		newArgs = config.AppendStringSplitArgs(cmd, newArgs, "", "")
-		newArgs = config.AppendStringArgsf(cmd.Parent(), newArgs, keyFluxNamespace, "--%s=%s")
 	}
 	RunRawCommand(rawCmd, newArgs)
 }

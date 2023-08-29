@@ -40,13 +40,14 @@ type RawCommand struct {
 
 // ExecuteCommand attempts to execute an instance of a subcommand
 func (command *RawCommand) ExecuteCommand(timeout time.Duration, rawOutput bool, buffered bool) (int, error) {
-	// Call this to set PATH
-	_, errExeDir := command.ExeDir()
-	if errExeDir != nil {
-		return -1, log.ErrWithTrace(errExeDir)
+	// Set PATH and get executable path
+	if _, err := command.ExeDir(); err != nil {
+		return -1, log.ErrWithTrace(err)
 	}
 
-	log.Fatal(command.CheckCommand(timeout))
+	if err := command.CheckCommand(timeout); err != nil {
+		log.Fatal(err)
+	}
 
 	exePath, errLookup := exec.LookPath(command.Command[0])
 	if errLookup != nil {
@@ -86,7 +87,7 @@ func (command *RawCommand) CheckCommand(timeout time.Duration) error {
 
 	commandExePath, errLookup := exec.LookPath(command.Name)
 	if errLookup != nil {
-		goto getExe
+		return command.getExe()
 	}
 
 	// check version
@@ -94,20 +95,19 @@ func (command *RawCommand) CheckCommand(timeout time.Duration) error {
 		command.VersionCommand = "version"
 	}
 	status, errRun = RunProcess(commandExePath, regexp.MustCompile(`\s+`).Split(command.VersionCommand, -1), timeout, true, true)
-	if errRun != nil {
+	switch {
+	case errRun != nil:
 		return log.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%+v", command.Name, errRun))
-	}
-	if status.Error != nil {
+	case status.Error != nil:
 		return log.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%+v", command.Name, status.Error))
-	}
-	if status.Exit != 0 {
+	case status.Exit != 0:
 		return log.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%s", command.Name, strings.Join(status.Stderr, "\n")))
 	}
 	// some programs output version on stderr
 	output = strings.Join(append(status.Stdout, status.Stderr...), "")
 	if !strings.Contains(output, command.Release) {
 		log.Warnf("release '%s' was not matched in version command output:\n%s", command.Release, output)
-		goto getExe
+		return command.getExe()
 	}
 
 	for i, p := range command.Additional {
@@ -120,10 +120,13 @@ func (command *RawCommand) CheckCommand(timeout time.Duration) error {
 		}
 	}
 
-getExe:
-	exeList, errEnsureExe := command.EnsureExe()
-	if errEnsureExe != nil {
-		return errEnsureExe
+	return nil
+}
+
+func (command *RawCommand) getExe() error {
+	exeList, err := command.EnsureExe()
+	if err != nil {
+		return err
 	}
 	exePath := ""
 	for _, b := range exeList {

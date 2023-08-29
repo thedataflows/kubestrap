@@ -5,10 +5,12 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/thedataflows/go-commons/pkg/config"
 	"github.com/thedataflows/go-commons/pkg/reflectutil"
+	"github.com/thedataflows/kubestrap/pkg/constants"
 	"github.com/thedataflows/kubestrap/pkg/kubernetes"
 	"github.com/thedataflows/kubestrap/pkg/kubestrap"
 )
@@ -38,7 +40,7 @@ var secretsCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(secretsCmd)
 
-	secretsCmd.PersistentFlags().StringP(keySecretsContext, "c", "", fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetes.GetKubeconfigPath()))
+	secretsCmd.PersistentFlags().StringP(keySecretsContext, "c", os.Getenv(constants.ViperEnvPrefix+"_SECRETS_"+keyFluxContext), fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetes.GetKubeconfigPath()))
 	secretsCmd.PersistentFlags().StringP(keySecretsNamespace, "n", "flux-system", "Kubernetes namespace for Secrets")
 	var secretsDir string
 	secretsCmd.PersistentFlags().StringVarP(&secretsDir, keySecretsDir, "d", "secrets", "Encrypted secrets directory")

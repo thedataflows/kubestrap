@@ -24,7 +24,9 @@ var secretsBootstrapCmd = &cobra.Command{
 		config.CheckRequiredFlags(cmd.Parent(), requiredSecretsFlags)
 
 		err := os.MkdirAll(config.ViperGetString(cmd.Parent(), keySecretsDir), 0700)
-		log.Fatal(err)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		context := config.ViperGetString(cmd.Parent(), keySecretsContext)
 

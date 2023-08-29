@@ -44,12 +44,15 @@ func init() {
 // RunRawCommand unmarshal commands and executes with provided arguments
 func RunRawCommand(cmd *cobra.Command, args []string) {
 	var commands []kubestrap.RawCommand
-	err := viper.UnmarshalKey(config.PrefixKey(cmd, keyRawUtilities), &commands, func(config *mapstructure.DecoderConfig) {
-		config.TagName = "yaml"
-		config.ErrorUnused = true
-		//config.ErrorUnset = true
-	})
-	log.Fatal(err)
+	if err := viper.UnmarshalKey(config.PrefixKey(cmd, keyRawUtilities), &commands,
+		func(config *mapstructure.DecoderConfig) {
+			config.TagName = "yaml"
+			config.ErrorUnused = true
+			// config.ErrorUnset = true
+		},
+	); err != nil {
+		log.Fatal(err)
+	}
 	if len(args) == 0 {
 		_ = cmd.Help()
 		fmt.Printf("\nAvailable utilities:\n")

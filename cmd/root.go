@@ -6,8 +6,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/thedataflows/go-commons/pkg/config"
+	"github.com/thedataflows/go-commons/pkg/file"
+	"github.com/thedataflows/go-commons/pkg/process"
 	"github.com/thedataflows/kubestrap/pkg/constants"
 
 	"github.com/spf13/cobra"
@@ -32,6 +35,10 @@ var (
 	configOpts = config.DefaultConfigOpts(
 		&config.Opts{
 			EnvPrefix: constants.ViperEnvPrefix,
+			UserConfigPaths: []string{
+				filepath.Join(process.CurrentProcessDirectory() + constants.DefaultConfig),
+				filepath.Join(file.WorkingDirectory() + constants.DefaultConfig),
+			},
 		},
 	)
 )
