@@ -10,7 +10,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.23.7
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
-	github.com/thedataflows/go-commons v1.3.6
+	github.com/thedataflows/go-commons v1.4.2
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
 )
 
@@ -38,7 +38,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/rs/zerolog v1.29.1 // indirect
+	github.com/rs/zerolog v1.30.0 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
