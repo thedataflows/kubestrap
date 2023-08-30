@@ -4,33 +4,33 @@ raw:
   raw-output: true
   utilities:
     - name: yq
-      release: 4.33.3
+      release: 4.35.1
       url:
         windows: https://github.com/mikefarah/yq/releases/download/v{{release}}/{{name}}_{{os}}_{{arch}}.exe
         linux: &linux https://github.com/mikefarah/yq/releases/download/v{{release}}/{{name}}_{{os}}_{{arch}}
         darwin: *linux
       version-command: --version
     - name: kubectl
-      release: v1.24.13
+      release: v1.27.5
       url:
         windows: https://dl.k8s.io/release/{{release}}/bin/{{os}}/{{arch}}/{{name}}.exe
         linux: &linux https://dl.k8s.io/release/{{release}}/bin/{{os}}/{{arch}}/{{name}}
         darwin: *linux
       version-command: version --client=true -o=yaml
     - name: k0s
-      release: v1.24.12+k0s.0
+      release: v1.27.5+k0s.0
       url:
         windows: https://github.com/k0sproject/k0s/releases/download/{{release}}/{{name}}-{{release}}-{{arch}}.exe
         linux: https://github.com/k0sproject/k0s/releases/download/{{release}}/{{name}}-{{release}}-{{arch}}
         # darwin: not yet available
     - name: k0sctl
-      release: v0.15.0
+      release: v0.15.5
       url:
         windows: https://github.com/k0sproject/k0sctl/releases/download/{{release}}/{{name}}-win-x64.exe
         linux: &linux https://github.com/k0sproject/k0sctl/releases/download/{{release}}/{{name}}-{{os}}-x64
         darwin: *linux
     - name: flux
-      release: 0.41.2
+      release: 2.1.0
       url:
         windows: https://github.com/fluxcd/flux2/releases/download/v{{release}}/{{name}}_{{release}}_{{os}}_{{arch}}.zip
         linux: &linux https://github.com/fluxcd/flux2/releases/download/v{{release}}/{{name}}_{{release}}_{{os}}_{{arch}}.tar.gz
@@ -55,7 +55,7 @@ raw:
         darwin: *linux
       version-command: --version
     - name: velero
-      release: v1.11.0
+      release: v1.11.1
       url:
         windows: &windows https://github.com/vmware-tanzu/velero/releases/download/{{release}}/{{name}}-{{release}}-{{os}}-{{arch}}.tar.gz
         linux: *windows
