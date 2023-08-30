@@ -19,9 +19,9 @@ var secretsBootstrapCmd = &cobra.Command{
 	Use:     "bootstrap",
 	Short:   "Bootstrap secrets",
 	Long:    ``,
-	Aliases: []string{"bs"},
+	Aliases: []string{"b"},
 	Run: func(cmd *cobra.Command, args []string) {
-		config.CheckRequiredFlags(cmd.Parent(), requiredSecretsFlags)
+		config.CheckRequiredFlags(cmd.Parent(), requiredSecretsFlags, 1)
 
 		err := os.MkdirAll(config.ViperGetString(cmd.Parent(), keySecretsDir), 0700)
 		if err != nil {

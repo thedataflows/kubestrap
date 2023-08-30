@@ -13,7 +13,7 @@ var fluxBootstrapCmd = &cobra.Command{
 	Short:   "Bootstrap or upgrade FluxCD",
 	Long:    ``,
 	Run:     RunFluxCommand,
-	Aliases: []string{"bs"},
+	Aliases: []string{"b"},
 }
 
 func init() {

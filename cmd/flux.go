@@ -36,15 +36,20 @@ var fluxCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(fluxCmd)
 
-	fluxCmd.PersistentFlags().StringP(keyFluxContext, "c", os.Getenv(constants.ViperEnvPrefix+"_FLUX_"+keyFluxContext), fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetes.GetKubeconfigPath()))
+	fluxCmd.PersistentFlags().StringP(
+		keyFluxContext,
+		"c",
+		os.Getenv(constants.ViperEnvPrefix+"_FLUX_"+keyFluxContext),
+		fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetes.GetKubeconfigPath()),
+	)
 	fluxCmd.PersistentFlags().StringVarP(&fluxNamespace, keyFluxNamespace, "n", "flux-system", "Kubernetes namespace for FluxCD")
 
-	config.ViperBindPFlagSet(fluxCmd, nil)
+	config.ViperBindPFlagSet(fluxCmd, fluxCmd.PersistentFlags())
 }
 
 // RunFluxCommand runs flux subcommands with appropriate context
 func RunFluxCommand(cmd *cobra.Command, args []string) {
-	config.CheckRequiredFlags(cmd.Parent(), requiredFluxFlags)
+	config.CheckRequiredFlags(cmd.Parent(), requiredFluxFlags, 2)
 
 	newArgs := []string{cmd.Parent().Use, cmd.Use}
 	newArgs = config.AppendStringArgsf(cmd.Parent(), newArgs, keyFluxContext, "--%s=%s")

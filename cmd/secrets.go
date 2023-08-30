@@ -51,5 +51,5 @@ func init() {
 	secretsCmd.PersistentFlags().String(keySecretsPrivateKey, kubestrap.ConcatStrings(secretsDir, "/", context, ".private.age"), "Private key")
 	secretsCmd.PersistentFlags().String(keySecretsPublicKey, kubestrap.ConcatStrings(secretsDir, "/", context, ".public.age"), "Public key")
 
-	config.ViperBindPFlagSet(secretsCmd, nil)
+	config.ViperBindPFlagSet(secretsCmd, secretsCmd.PersistentFlags())
 }

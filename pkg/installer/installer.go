@@ -23,13 +23,13 @@ func DownloadFile(destinationPath string, url string) (string, error) {
 	client := grab.NewClient()
 	req, _ := grab.NewRequest(destinationPath, url)
 	// start download
-	log.Infof("grabbing '%v'\n", req.URL())
+	log.Infof("%s '%v'", req.HTTPRequest.Method, req.URL())
 	resp := client.Do(req)
 	if resp.HTTPResponse != nil {
 		if resp.HTTPResponse.StatusCode >= 200 && resp.HTTPResponse.StatusCode < 400 {
-			log.Infof("  %v\n", resp.HTTPResponse.Status)
+			log.Infof("  %v", resp.HTTPResponse.Status)
 		} else {
-			log.Errorf("  %v\n", resp.HTTPResponse.Status)
+			log.Errorf("  %v", resp.HTTPResponse.Status)
 		}
 	} else {
 		return "", fmt.Errorf("%s", resp.Err())
@@ -41,11 +41,17 @@ Loop:
 	for {
 		select {
 		case <-t.C:
-			log.Infof("  %d / %d bytes (%.2f%%)\n",
+			log.Infof("  %d / %d bytes (%.2f%%)",
 				resp.BytesComplete(),
 				resp.Size(),
-				100*resp.Progress())
+				100*resp.Progress(),
+			)
 		case <-resp.Done:
+			log.Infof("  %d / %d bytes (%.2f%%)",
+				resp.BytesComplete(),
+				resp.Size(),
+				100*resp.Progress(),
+			)
 			// download is complete
 			break Loop
 		}
@@ -53,7 +59,7 @@ Loop:
 	if err := resp.Err(); err != nil {
 		return "", err
 	}
-	log.Infof("downloaded to '%v'\n", resp.Filename)
+	log.Infof("downloaded to '%v'", resp.Filename)
 	return resp.Filename, nil
 }
 
