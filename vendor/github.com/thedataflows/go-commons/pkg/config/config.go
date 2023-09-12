@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -74,14 +73,14 @@ func WithFlags(flags *pflag.FlagSet) Option {
 }
 
 // NewOptions sets default Options overriding with options
-func NewOptions(options ...Option) *Options {
+func NewOptions(options ...Option) (*Options, error) {
 	opts := Options{
 		EnvPrefix: defaults.ViperEnvPrefix,
 	}
 	opts.ConfigName = file.TrimExtension(filepath.Base(process.CurrentProcessPath()))
 	configPath, err := file.AppHome("")
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	opts.UserConfigPaths = []string{".", configPath}
 	opts.LogLevelKey = defaults.LogLevelKey
@@ -95,11 +94,16 @@ func NewOptions(options ...Option) *Options {
 			strings.Join(log.AllLevelsValues, ", "),
 		),
 	)
-	opts.Flags.String(opts.LogFormatKey, log.LogFormats[0], fmt.Sprintf("Set log format to one of: '%s'", strings.Join(log.LogFormats, ", ")))
+	opts.Flags.String(
+		opts.LogFormatKey,
+		log.LogFormats[0],
+		fmt.Sprintf("Set log format to one of: '%s'", strings.Join(log.LogFormats, ", ")),
+	)
 	opts.Flags.StringSliceVar(
 		&opts.UserConfigPaths,
 		"config",
-		opts.UserConfigPaths, fmt.Sprintf(
+		opts.UserConfigPaths,
+		fmt.Sprintf(
 			"Config file(s) or directories. When just dirs, file '%s' with extensions '%s' is looked up. Can be specified multiple times",
 			opts.ConfigName,
 			strings.Join(viper.SupportedExts, ", "),
@@ -111,20 +115,26 @@ func NewOptions(options ...Option) *Options {
 		o(&opts)
 	}
 
-	return &opts
+	return &opts, nil
 }
 
 // InitConfig reads in config file and ENV variables if set.
-func (opts *Options) InitConfig() {
+func (opts *Options) InitConfig() error {
+	var err error
 	if opts == nil {
-		opts = NewOptions()
+		opts, err = NewOptions()
+		if err != nil {
+			return err
+		}
 	}
 
 	viper.SetEnvPrefix(opts.EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	viper.AutomaticEnv() // read in environment variables that match
 
-	opts.setLogging()
+	if err = opts.setLogging(); err != nil {
+		return err
+	}
 
 	viper.SetConfigType(opts.ConfigType)
 	// Use config file from the flag.
@@ -145,7 +155,9 @@ func (opts *Options) InitConfig() {
 	}
 
 	// a second call is to set again logging if configured in file
-	opts.setLogging()
+	if err = opts.setLogging(); err != nil {
+		return err
+	}
 
 	if log.Logger.GetLevel() == log.TraceLevel {
 		log.Trace("====== begin viper configuration dump ======")
@@ -161,9 +173,11 @@ func (opts *Options) InitConfig() {
 	// see https://commandcenter.blogspot.com/2014/01/self-referential-functions-and-design.html and
 	// https://dave.cheney.net/2014/10/17/functional-options-for-friendly-apis.
 	// viper.WatchConfig()
+
+	return nil
 }
 
-func (opts *Options) setLogging() {
+func (opts *Options) setLogging() error {
 	// Set log format
 	v := viper.GetString(opts.LogFormatKey)
 	if len(v) == 0 {
@@ -171,7 +185,7 @@ func (opts *Options) setLogging() {
 	}
 	err := log.SetLogFormat(v)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	// Set log level
@@ -181,28 +195,30 @@ func (opts *Options) setLogging() {
 	}
 	err = log.SetLogLevel(v)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+
+	return nil
 }
 
 // CheckRequiredFlags exits with error when one ore more required flags are not set
-func CheckRequiredFlags(cmd *cobra.Command, requiredFlags []string, ret int) {
+func CheckRequiredFlags(cmd *cobra.Command, requiredFlags []string) error {
 	neededFlags := make([]string, 0, len(requiredFlags))
 	for _, f := range requiredFlags {
 		if !ViperIsSet(cmd, f) {
 			neededFlags = append(neededFlags, f)
 		}
 	}
+
 	if len(neededFlags) > 0 {
-		log.Error("Error: required flags are not set:")
+		errorMessage := "required flags are not set:"
 		for _, f := range neededFlags {
-			log.Errorf("  --%s", f)
+			errorMessage = fmt.Sprintf("%s\n  --%s", errorMessage, f)
 		}
-		_ = cmd.Usage()
-		if ret > 0 {
-			os.Exit(ret)
-		}
+		return fmt.Errorf(errorMessage)
 	}
+
+	return nil
 }
 
 // BuildEnvKey returns a fully constructed environment variable name
