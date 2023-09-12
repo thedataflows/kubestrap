@@ -42,21 +42,21 @@ type RawCommand struct {
 func (command *RawCommand) ExecuteCommand(timeout time.Duration, rawOutput bool, buffered bool) (int, error) {
 	// Set PATH and get executable path
 	if _, err := command.ExeDir(); err != nil {
-		return -1, log.ErrWithTrace(err)
+		return -1, err
 	}
 
 	if err := command.CheckCommand(timeout); err != nil {
-		log.Fatal(err)
+		return -2, err
 	}
 
-	exePath, errLookup := exec.LookPath(command.Command[0])
-	if errLookup != nil {
-		return -2, log.ErrWithTrace(errLookup)
+	exePath, err := exec.LookPath(command.Command[0])
+	if err != nil {
+		return -3, err
 	}
 
-	status, errRun := RunProcess(exePath, command.Command[1:], timeout, rawOutput, buffered)
-	if errRun != nil {
-		return -3, log.ErrWithTrace(errRun)
+	status, err := RunProcess(exePath, command.Command[1:], timeout, rawOutput, buffered)
+	if err != nil {
+		return -4, err
 	}
 	if buffered {
 		for _, line := range status.Stdout {
@@ -97,11 +97,11 @@ func (command *RawCommand) CheckCommand(timeout time.Duration) error {
 	status, errRun = RunProcess(commandExePath, regexp.MustCompile(`\s+`).Split(command.VersionCommand, -1), timeout, true, true)
 	switch {
 	case errRun != nil:
-		return log.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%+v", command.Name, errRun))
+		return fmt.Errorf("[%s] version check failed:\n%+v", command.Name, errRun)
 	case status.Error != nil:
-		return log.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%+v", command.Name, status.Error))
+		return fmt.Errorf("[%s] version check failed:\n%+v", command.Name, status.Error)
 	case status.Exit != 0:
-		return log.ErrWithTrace(fmt.Errorf("[%s] version check failed:\n%s", command.Name, strings.Join(status.Stderr, "\n")))
+		return fmt.Errorf("[%s] version check failed:\n%s", command.Name, strings.Join(status.Stderr, "\n"))
 	}
 	// some programs output version on stderr
 	output = strings.Join(append(status.Stdout, status.Stderr...), "")
@@ -149,18 +149,18 @@ func (command *RawCommand) EnsureExe() ([]string, error) {
 	// check for error later, if we get to download
 	parsedUrl, errParseUrl := command.GetUrl()
 	if errParseUrl != nil {
-		return nil, log.ErrWithTrace(errParseUrl)
+		return nil, errParseUrl
 	}
 
 	if parsedUrl.Path == "" && command.CachePath == "" {
-		return nil, log.ErrWithTrace(fmt.Errorf("at least one of 'url.%s' or 'cache-path' must be specified", runtime.GOOS))
+		return nil, fmt.Errorf("at least one of 'url.%s' or 'cache-path' must be specified", runtime.GOOS)
 	}
 
 	download := false
 
 	exeDir, errExeDir := command.ExeDir()
 	if errExeDir != nil {
-		return nil, log.ErrWithTrace(errExeDir)
+		return nil, errExeDir
 	}
 	// Use cache first
 	cachePath := command.CachePath
@@ -173,7 +173,7 @@ cache:
 	if errStat != nil {
 		log.Warnf("%+v", errStat)
 		if parsedUrl.Path == "" {
-			return nil, log.ErrWithTrace(fmt.Errorf("'cache-path=%s' is invalid and 'url.%s' is empty", cachePath, runtime.GOOS))
+			return nil, fmt.Errorf("'cache-path=%s' is invalid and 'url.%s' is empty", cachePath, runtime.GOOS)
 		}
 		download = true
 	}
@@ -190,7 +190,7 @@ cache:
 			}
 		}
 		if parsedUrl.Path == "" {
-			return nil, log.ErrWithTrace(fmt.Errorf("'cache-path=%s' is a directory but 'url.%s' is empty", cachePath, runtime.GOOS))
+			return nil, fmt.Errorf("'cache-path=%s' is a directory but 'url.%s' is empty", cachePath, runtime.GOOS)
 		}
 		newCachePath := filepath.Join(cachePath, filepath.Base(parsedUrl.Path))
 		if file.IsAccessible(newCachePath) {
@@ -220,7 +220,7 @@ cache:
 				err = os.Rename(cachePath, exePath)
 			}
 			if err != nil {
-				return nil, log.ErrWithTrace(err)
+				return nil, err
 			}
 			return []string{exePath}, nil
 		}
@@ -234,11 +234,11 @@ cache:
 			var err error
 			cachePath, err = filepath.Abs(parsedUrl.Path)
 			if err != nil {
-				return nil, log.ErrWithTrace(err)
+				return nil, err
 			}
 			_, err = os.Stat(cachePath)
 			if err != nil {
-				return nil, log.ErrWithTrace(err)
+				return nil, err
 			}
 			goto cache
 		case "http", "https":
@@ -246,11 +246,11 @@ cache:
 			var errDownload error
 			cachePath, errDownload = installer.DownloadFile(cachePath, parsedUrl.String())
 			if errDownload != nil {
-				return nil, log.ErrWithTrace(errDownload)
+				return nil, errDownload
 			}
 			goto cache
 		default:
-			return nil, log.ErrWithTrace(fmt.Errorf("scheme '%s' not yet supported in '%s'. Please use 'file', 'http' or 'https'", parsedUrl.Scheme, parsedUrl.String()))
+			return nil, fmt.Errorf("scheme '%s' not yet supported in '%s'. Please use 'file', 'http' or 'https'", parsedUrl.Scheme, parsedUrl.String())
 		}
 	}
 
@@ -266,13 +266,13 @@ extract:
 		command.Extract.Pattern,
 		true)
 	if errExtract != nil {
-		return nil, log.ErrWithTrace(errExtract)
+		return nil, errExtract
 	}
 
 	if download {
 		err := os.Remove(cachePath)
 		if err != nil {
-			return nil, log.ErrWithTrace(err)
+			return nil, err
 		}
 	}
 	return extractedFiles, nil
@@ -282,18 +282,18 @@ extract:
 func (command *RawCommand) ExeDir() (string, error) {
 	appHome, errHome := file.AppHome("")
 	if errHome != nil {
-		return "", log.ErrWithTrace(errHome)
+		return "", errHome
 	}
 	dir := filepath.Clean(fmt.Sprintf("%s/bin/%s/%s", appHome, command.Name, command.Release))
 	if !file.IsDirectory(dir) {
 		errMkdir := os.MkdirAll(dir, 0700)
 		if errMkdir != nil {
-			return "", log.ErrWithTrace(errMkdir)
+			return "", errMkdir
 		}
 	}
 	errEnv := SetEnvPath(dir, true)
 	if errEnv != nil {
-		return "", log.ErrWithTrace(errEnv)
+		return "", errEnv
 	}
 	return dir, nil
 }

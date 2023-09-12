@@ -12,7 +12,7 @@ var fluxReconcileCmd = &cobra.Command{
 	Use:     "reconcile",
 	Short:   "Reconcile FluxCD",
 	Long:    ``,
-	Run:     RunFluxCommand,
+	RunE:    RunFluxCommand,
 	Aliases: []string{"r"},
 }
 

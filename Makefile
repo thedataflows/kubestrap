@@ -32,6 +32,7 @@ fmt:
 # tidy: Tidy with go mod tidy
 tidy:
 	go mod tidy
+	go mod vendor
 
 ## pre-commit: Chain lint + test
 pre-commit: test lint

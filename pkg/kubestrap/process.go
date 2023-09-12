@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/thedataflows/go-commons/pkg/log"
+	"github.com/thedataflows/go-commons/pkg/stringutil"
 	"github.com/thedataflows/kubestrap/pkg/constants"
 
 	"github.com/go-cmd/cmd"
@@ -107,19 +108,6 @@ func IsProcessRunning(binaryPath, cmdLine string) (int, error) {
 	return 0, nil
 }
 
-// CurrentProcessPath returns the absolute path of the current running process
-func CurrentProcessPath() (string, error) {
-	exePath, errOsExePath := os.Executable()
-	if errOsExePath != nil {
-		return "", errOsExePath
-	}
-	p, errAbs := filepath.Abs(exePath)
-	if errAbs != nil {
-		return "", errAbs
-	}
-	return p, nil
-}
-
 // SetEnvPath appends (if before is true) or prepends element to PATH for the current process
 func SetEnvPath(element string, before bool) error {
 	if element == "" {
@@ -130,9 +118,9 @@ func SetEnvPath(element string, before bool) error {
 	if runtime.GOOS == constants.Windows {
 		delim = ";"
 	}
-	env := ConcatStrings(path, delim, element)
+	env := stringutil.ConcatStrings(path, delim, element)
 	if before {
-		env = ConcatStrings(element, delim, path)
+		env = stringutil.ConcatStrings(element, delim, path)
 	}
 	err := os.Setenv("PATH", env)
 	if err != nil {

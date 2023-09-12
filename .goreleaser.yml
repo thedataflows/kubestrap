@@ -6,6 +6,8 @@ archives:
         format: zip
     files:
       - README.md
+      - defaults.yaml
+      - flux-patches.yaml
     name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}"
     rlcp: true
 builds:

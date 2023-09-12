@@ -25,15 +25,14 @@ func DownloadFile(destinationPath string, url string) (string, error) {
 	// start download
 	log.Infof("%s '%v'", req.HTTPRequest.Method, req.URL())
 	resp := client.Do(req)
-	if resp.HTTPResponse != nil {
-		if resp.HTTPResponse.StatusCode >= 200 && resp.HTTPResponse.StatusCode < 400 {
-			log.Infof("  %v", resp.HTTPResponse.Status)
-		} else {
-			log.Errorf("  %v", resp.HTTPResponse.Status)
-		}
-	} else {
+	if resp.HTTPResponse == nil {
 		return "", fmt.Errorf("%s", resp.Err())
 	}
+	if resp.HTTPResponse.StatusCode < 200 && resp.HTTPResponse.StatusCode >= 400 {
+		return "", fmt.Errorf("wrong status code %v. Expected 2xx, 3xx", resp.HTTPResponse.Status)
+	}
+	log.Infof("  %v", resp.HTTPResponse.Status)
+
 	// start UI loop
 	t := time.NewTicker(500 * time.Millisecond)
 	defer t.Stop()
@@ -105,33 +104,38 @@ func ExtractFiles(archivePath, destination string, filesToExtract []string, patt
 	// try to extract
 	extractedFiles := make([]string, 0, len(filesToExtract))
 	if ex, ok := format.(archiver.Extractor); ok {
-		err := ex.Extract(context.Background(), input, nil, func(ctx context.Context, f archiver.File) error {
-			if re.String() != "" {
-				if !re.Match([]byte(f.NameInArchive)) && !slices.Contains(filesToExtract, f.NameInArchive) {
+		err := ex.Extract(
+			context.Background(),
+			input,
+			nil,
+			func(ctx context.Context, f archiver.File) error {
+				if re.String() != "" {
+					if !re.Match([]byte(f.NameInArchive)) && !slices.Contains(filesToExtract, f.NameInArchive) {
+						return nil
+					}
+				} else if !slices.Contains(filesToExtract, f.NameInArchive) {
 					return nil
 				}
-			} else if !slices.Contains(filesToExtract, f.NameInArchive) {
-				return nil
-			}
-			if f.IsDir() {
+				if f.IsDir() {
+					if stripPath {
+						return nil
+					}
+					err = os.MkdirAll(filepath.Join(destination, f.NameInArchive), f.Mode())
+					return err
+				}
+				dstFileName := f.NameInArchive
 				if stripPath {
-					return nil
+					dstFileName = filepath.Base(f.NameInArchive)
 				}
-				err = os.MkdirAll(filepath.Join(destination, f.NameInArchive), f.Mode())
-				return err
-			}
-			dstFileName := f.NameInArchive
-			if stripPath {
-				dstFileName = filepath.Base(f.NameInArchive)
-			}
-			err := WriteExtractedFile(f, filepath.Join(destination, dstFileName))
-			if err != nil {
-				return err
-			}
-			extractedFiles = append(extractedFiles, dstFileName)
-			log.Debugf("extracted %s", dstFileName)
-			return nil
-		})
+				err := WriteExtractedFile(f, filepath.Join(destination, dstFileName))
+				if err != nil {
+					return err
+				}
+				extractedFiles = append(extractedFiles, dstFileName)
+				log.Debugf("extracted %s", dstFileName)
+				return nil
+			},
+		)
 		if err != nil {
 			return nil, err
 		}

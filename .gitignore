@@ -27,3 +27,5 @@ bin/
 __debug_bin.*
 testing/
 dist/
+kubernetes/
+secrets/

@@ -27,7 +27,7 @@ var rawCmd = &cobra.Command{
 	Use:     "raw",
 	Short:   "Directly run one of the predefined utilities. To pass flags for the raw command, use --",
 	Long:    ``,
-	Run:     RunRawCommand,
+	RunE:    RunRawCommand,
 	Aliases: []string{"r"},
 }
 
@@ -42,16 +42,18 @@ func init() {
 }
 
 // RunRawCommand unmarshal commands and executes with provided arguments
-func RunRawCommand(cmd *cobra.Command, args []string) {
+func RunRawCommand(cmd *cobra.Command, args []string) error {
 	var commands []kubestrap.RawCommand
-	if err := viper.UnmarshalKey(config.PrefixKey(cmd, keyRawUtilities), &commands,
+	if err := viper.UnmarshalKey(
+		config.PrefixKey(cmd, keyRawUtilities),
+		&commands,
 		func(config *mapstructure.DecoderConfig) {
 			config.TagName = "yaml"
 			config.ErrorUnused = true
 			// config.ErrorUnset = true
 		},
 	); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if len(args) == 0 {
 		_ = cmd.Help()
@@ -59,20 +61,21 @@ func RunRawCommand(cmd *cobra.Command, args []string) {
 		for _, c := range commands {
 			fmt.Printf("  - %s %s\n", c.Name, c.Release)
 		}
-		return
+		return nil
 	}
 	for _, c := range commands {
 		if c.Name == args[0] || slices.Contains(c.Additional, args[0]) {
 			timeout := config.ViperGetDuration(cmd, keyRawTimeout)
 			log.Debugf("execution timeout: %s", timeout)
 			c.Command = args
-			if _, errExecute := c.ExecuteCommand(timeout, config.ViperGetBool(cmd, keyRawRawOutput), false); errExecute != nil {
-				log.Fatal(errExecute)
+			retCode, err := c.ExecuteCommand(timeout, config.ViperGetBool(cmd, keyRawRawOutput), false)
+			if retCode != 0 {
+				log.Errorf("command '%s' failed with code %d", args[0], retCode)
 			}
 			// Config allows for duplicates, but here we stop at the first match
-			return
+			return err
 		}
 	}
 	// If we get here, the command is not in the config, do not allow that
-	log.Errorf("command '%s' is not supported, perhaps add it to the config?\n", args[0])
+	return fmt.Errorf("command '%s' is not supported, perhaps add it to the config?", args[0])
 }

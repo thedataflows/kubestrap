@@ -15,8 +15,8 @@
             "cwd": "${workspaceFolder}",
             "program": "${workspaceFolder}/main.go",
             "args": [
-                "flux",
-                "reconcile"
+                "secrets",
+                "bootstrap"
             ]
         }
     ]
