@@ -13,7 +13,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.23.8
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
-	github.com/thedataflows/go-commons v1.5.0
+	github.com/thedataflows/go-commons v1.6.0
 	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
 	sigs.k8s.io/kustomize/api v0.14.0
 	sigs.k8s.io/kustomize/kyaml v0.14.3

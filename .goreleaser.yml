@@ -13,7 +13,6 @@ archives:
 builds:
   - env:
       - CGO_ENABLED=0
-      - GO111MODULE=on
     goos:
       - linux
       - darwin
@@ -27,6 +26,7 @@ builds:
       - -s
       - -w
       - -X=github.com/thedataflows/{{ .ProjectName }}/cmd.version={{.Tag}}
+      - -trimpath
     main: main.go
 checksum:
   name_template: "sha256sums.txt"

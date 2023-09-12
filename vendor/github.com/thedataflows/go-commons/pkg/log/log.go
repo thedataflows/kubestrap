@@ -74,7 +74,7 @@ func SetLogFormat(format string) error {
 func PreferredWriter() io.Writer {
 	return io.MultiWriter(
 		new(bytes.Buffer),
-		os.Stdout,
+		os.Stderr,
 	)
 }
 
