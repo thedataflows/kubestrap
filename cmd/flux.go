@@ -33,7 +33,9 @@ var fluxCmd = &cobra.Command{
 }
 
 func init() {
-	configOpts.InitConfig()
+	if err := configOpts.InitConfig(); err != nil {
+		panic(err)
+	}
 
 	rootCmd.AddCommand(fluxCmd)
 
@@ -66,7 +68,9 @@ func init() {
 
 // RunFluxCommand runs flux subcommands with appropriate context
 func RunFluxCommand(cmd *cobra.Command, args []string) error {
-	config.CheckRequiredFlags(cmd.Parent(), requiredFluxFlags, 2)
+	if err := config.CheckRequiredFlags(cmd.Parent(), requiredFluxFlags); err != nil {
+		return err
+	}
 
 	newArgs := []string{cmd.Parent().Use, cmd.Use}
 	newArgs = config.AppendStringArgsf("--%s=%s", cmd.Parent(), newArgs, keyFluxContext)

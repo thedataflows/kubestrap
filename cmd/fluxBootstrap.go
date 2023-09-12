@@ -76,10 +76,14 @@ func init() {
 
 // RunFluxBoostrapCommand runs flux bootstrap subcommand
 func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
-	// Run the main command
-	config.CheckRequiredFlags(cmd.Parent(), requiredFluxFlags, 2)
-	config.CheckRequiredFlags(cmd, []string{keyFluxBootstrapSubCommand}, 3)
+	if err := config.CheckRequiredFlags(cmd.Parent(), requiredFluxFlags); err != nil {
+		return err
+	}
+	if err := config.CheckRequiredFlags(cmd, []string{keyFluxBootstrapSubCommand}); err != nil {
+		return err
+	}
 
+	// Run the main command
 	newArgs := []string{cmd.Parent().Use, cmd.Use}
 	newArgs = config.AppendStringArgsf("--%s=%s", cmd.Parent(), newArgs, keyFluxContext)
 	if len(args) > 0 {
@@ -133,7 +137,7 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 	}
 	w, err := r.Worktree()
 	if err != nil {
-		return fmt.Errorf("error gettng work tree: %v", err)
+		return fmt.Errorf("error getting work tree: %v", err)
 	}
 	hash, err := w.Add(kustomizationFilePath)
 	if err != nil {

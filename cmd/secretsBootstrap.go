@@ -46,7 +46,9 @@ func init() {
 }
 
 func RunSecretsBootstrapCommand(cmd *cobra.Command, args []string) error {
-	config.CheckRequiredFlags(cmd.Parent(), requiredSecretsFlags, 2)
+	if err := config.CheckRequiredFlags(cmd.Parent(), requiredSecretsFlags); err != nil {
+		return err
+	}
 
 	err := os.MkdirAll(config.ViperGetString(cmd.Parent(), keySecretsDir), 0700)
 	if err != nil {

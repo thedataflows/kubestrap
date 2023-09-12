@@ -37,7 +37,9 @@ var secretsCmd = &cobra.Command{
 }
 
 func init() {
-	configOpts.InitConfig()
+	if err := configOpts.InitConfig(); err != nil {
+		panic(err)
+	}
 
 	rootCmd.AddCommand(secretsCmd)
 

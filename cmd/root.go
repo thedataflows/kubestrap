@@ -36,7 +36,15 @@ var (
 		},
 	}
 
-	configOpts = config.NewOptions(
+	configOpts *config.Options
+)
+
+func init() {
+	// cobra.OnInitialize(configOpts.InitConfig)
+	// configOpts.InitConfig()
+
+	var err error
+	configOpts, err = config.NewOptions(
 		config.WithEnvPrefix(constants.ViperEnvPrefix),
 		config.WithUserConfigPaths(
 			[]string{
@@ -45,11 +53,9 @@ var (
 			},
 		),
 	)
-)
-
-func init() {
-	// cobra.OnInitialize(configOpts.InitConfig)
-	// configOpts.InitConfig()
+	if err != nil {
+		panic(err)
+	}
 
 	configOpts.Flags.StringVar(
 		&projectRootDir,
