@@ -32,11 +32,7 @@ var fluxCmd = &cobra.Command{
 	Aliases: []string{"f"},
 }
 
-func init() {
-	if err := configOpts.InitConfig(); err != nil {
-		panic(err)
-	}
-
+func initFluxCmd() {
 	rootCmd.AddCommand(fluxCmd)
 
 	fluxContext = config.ViperGetString(fluxCmd, keyFluxContext)
@@ -64,6 +60,9 @@ func init() {
 	)
 
 	config.ViperBindPFlagSet(fluxCmd, fluxCmd.PersistentFlags())
+
+	// Init subcommands
+	initFluxBootstrapCmd()
 }
 
 // RunFluxCommand runs flux subcommands with appropriate context

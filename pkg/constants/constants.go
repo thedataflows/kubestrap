@@ -1,10 +1,10 @@
 package constants
 
 const (
-	ViperEnvPrefix = "KS"
-	BUFFERSIZE     = 1 * 1024 * 1024
-	Windows        = "windows"
-	Linux          = "linux"
-	Darwin         = "darwin"
-	DefaultConfig  = "/defaults.yaml"
+	ViperEnvPrefix    = "KS"
+	BUFFERSIZE        = 1 * 1024 * 1024
+	Windows           = "windows"
+	Linux             = "linux"
+	Darwin            = "darwin"
+	DefaultConfigName = "defaults"
 )

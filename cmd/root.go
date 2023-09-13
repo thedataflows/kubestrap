@@ -36,25 +36,21 @@ var (
 		},
 	}
 
-	configOpts *config.Options
-)
-
-func init() {
-	// cobra.OnInitialize(configOpts.InitConfig)
-	// configOpts.InitConfig()
-
-	var err error
-	configOpts, err = config.NewOptions(
+	configOpts, configOptsErr = config.NewOptions(
 		config.WithEnvPrefix(constants.ViperEnvPrefix),
+		config.WithConfigName(constants.DefaultConfigName),
 		config.WithUserConfigPaths(
 			[]string{
-				filepath.Join(process.CurrentProcessDirectory() + constants.DefaultConfig),
-				filepath.Join(file.WorkingDirectory() + constants.DefaultConfig),
+				filepath.Join(process.CurrentProcessDirectory()),
+				filepath.Join(file.WorkingDirectory()),
 			},
 		),
 	)
-	if err != nil {
-		panic(err)
+)
+
+func init() {
+	if configOptsErr != nil {
+		panic(configOptsErr)
 	}
 
 	configOpts.Flags.StringVar(
@@ -65,8 +61,19 @@ func init() {
 	)
 
 	rootCmd.PersistentFlags().AddFlagSet(configOpts.Flags)
-
 	config.ViperBindPFlagSet(rootCmd, configOpts.Flags)
+	rootCmd.ParseFlags(os.Args[1:])
+
+	if err := configOpts.InitConfig(); err != nil {
+		panic(err)
+	}
+
+	// Init subcommands
+	initClusterCmd()
+	initFluxCmd()
+	initRawCmd()
+	initSecretsCmd()
+	initVersion()
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

@@ -38,7 +38,7 @@ var fluxBootstrapCmd = &cobra.Command{
 	Aliases: []string{"b"},
 }
 
-func init() {
+func initFluxBootstrapCmd() {
 	fluxCmd.AddCommand(fluxBootstrapCmd)
 
 	fluxBootstrapPath = config.ViperGetString(fluxBootstrapCmd, keyFluxBootstrapPath)

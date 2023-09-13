@@ -31,7 +31,7 @@ var secretsBootstrapCmd = &cobra.Command{
 	RunE:    RunSecretsBootstrapCommand,
 }
 
-func init() {
+func initSecretsBootstrapCmd() {
 	secretsCmd.AddCommand(secretsBootstrapCmd)
 
 	secretsBootstrapForce = config.ViperGetBool(secretsBootstrapCmd, keySecretsBootstrapForce)

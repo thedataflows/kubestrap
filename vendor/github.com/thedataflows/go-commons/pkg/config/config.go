@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	jww "github.com/spf13/jwalterweatherman"
 	"github.com/thedataflows/go-commons/pkg/defaults"
 	"github.com/thedataflows/go-commons/pkg/file"
 	"github.com/thedataflows/go-commons/pkg/log"
@@ -23,7 +24,9 @@ type Options struct {
 	ConfigType      string
 	ConfigName      string
 	UserConfigPaths []string
+	LogLevel        string
 	LogLevelKey     string
+	LogFormat       string
 	LogFormatKey    string
 	Flags           *pflag.FlagSet
 }
@@ -87,14 +90,16 @@ func NewOptions(options ...Option) (*Options, error) {
 	opts.LogFormatKey = defaults.LogFormatKey
 
 	opts.Flags = pflag.NewFlagSet("root", pflag.ExitOnError)
-	opts.Flags.String(
+	opts.Flags.StringVar(
+		&opts.LogLevel,
 		opts.LogLevelKey,
-		log.InfoLevel.String(),
+		log.WarnLevel.String(),
 		fmt.Sprintf("Set log level to one of: '%s'",
 			strings.Join(log.AllLevelsValues, ", "),
 		),
 	)
-	opts.Flags.String(
+	opts.Flags.StringVar(
+		&opts.LogFormat,
 		opts.LogFormatKey,
 		log.LogFormats[0],
 		fmt.Sprintf("Set log format to one of: '%s'", strings.Join(log.LogFormats, ", ")),
@@ -181,7 +186,7 @@ func (opts *Options) setLogging() error {
 	// Set log format
 	v := viper.GetString(opts.LogFormatKey)
 	if len(v) == 0 {
-		v = log.LogFormats[0]
+		v = opts.LogFormat
 	}
 	err := log.SetLogFormat(v)
 	if err != nil {
@@ -191,11 +196,20 @@ func (opts *Options) setLogging() error {
 	// Set log level
 	v = viper.GetString(opts.LogLevelKey)
 	if len(v) == 0 {
-		v = log.InfoLevel.String()
+		v = opts.LogLevel
 	}
 	err = log.SetLogLevel(v)
 	if err != nil {
 		return err
+	}
+	// Enable viper logging but only for debug and trace
+	switch log.Logger.GetLevel() {
+	case log.TraceLevel:
+		jww.SetLogThreshold(jww.LevelTrace)
+		jww.SetStdoutThreshold(jww.LevelTrace)
+	case log.DebugLevel:
+		jww.SetLogThreshold(jww.LevelDebug)
+		jww.SetStdoutThreshold(jww.LevelDebug)
 	}
 
 	return nil
@@ -215,6 +229,7 @@ func CheckRequiredFlags(cmd *cobra.Command, requiredFlags []string) error {
 		for _, f := range neededFlags {
 			errorMessage = fmt.Sprintf("%s\n  --%s", errorMessage, f)
 		}
+		errorMessage = fmt.Sprintf("%s\n", errorMessage)
 		return fmt.Errorf(errorMessage)
 	}
 

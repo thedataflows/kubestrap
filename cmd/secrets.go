@@ -36,11 +36,7 @@ var secretsCmd = &cobra.Command{
 	// Run: func(cmd *cobra.Command, args []string) {},
 }
 
-func init() {
-	if err := configOpts.InitConfig(); err != nil {
-		panic(err)
-	}
-
+func initSecretsCmd() {
 	rootCmd.AddCommand(secretsCmd)
 
 	secretContext = config.ViperGetString(secretsCmd, keySecretsContext)
@@ -88,4 +84,7 @@ func init() {
 	)
 
 	config.ViperBindPFlagSet(secretsCmd, secretsCmd.PersistentFlags())
+
+	// Init subcommands
+	initSecretsBootstrapCmd()
 }

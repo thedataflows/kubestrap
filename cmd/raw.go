@@ -31,7 +31,7 @@ var rawCmd = &cobra.Command{
 	Aliases: []string{"r"},
 }
 
-func init() {
+func initRawCmd() {
 	rootCmd.AddCommand(rawCmd)
 
 	d, _ := time.ParseDuration("1m0s")
