@@ -76,5 +76,8 @@ flux:
   reconcile: kustomization flux-system --with-source
 secrets:
   context: *context
-  # bootstrap:
-  #   force: true
+  # bootstrap-path: bootstrap/cluster-mycontext
+  # force: true
+cluster:
+  context: *context
+  # path: bootstrap/cluster-mycontext
