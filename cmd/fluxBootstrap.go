@@ -39,6 +39,7 @@ var fluxBootstrapCmd = &cobra.Command{
 }
 
 func initFluxBootstrapCmd() {
+	fluxBootstrapCmd.SilenceErrors = rootCmd.SilenceErrors
 	fluxCmd.AddCommand(fluxBootstrapCmd)
 
 	fluxBootstrapPath = config.ViperGetString(fluxBootstrapCmd, keyFluxBootstrapPath)

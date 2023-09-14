@@ -32,6 +32,7 @@ var rawCmd = &cobra.Command{
 }
 
 func initRawCmd() {
+	rawCmd.SilenceErrors = rootCmd.SilenceErrors
 	rootCmd.AddCommand(rawCmd)
 
 	d, _ := time.ParseDuration("1m0s")

@@ -33,6 +33,7 @@ var fluxCmd = &cobra.Command{
 }
 
 func initFluxCmd() {
+	fluxCmd.SilenceErrors = rootCmd.SilenceErrors
 	rootCmd.AddCommand(fluxCmd)
 
 	fluxContext = config.ViperGetString(fluxCmd, keyFluxContext)

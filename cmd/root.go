@@ -53,6 +53,8 @@ func init() {
 		panic(configOptsErr)
 	}
 
+	rootCmd.SilenceErrors = true
+
 	configOpts.Flags.StringVar(
 		&projectRootDir,
 		keyRootProjectRoot,
@@ -62,7 +64,7 @@ func init() {
 
 	rootCmd.PersistentFlags().AddFlagSet(configOpts.Flags)
 	config.ViperBindPFlagSet(rootCmd, configOpts.Flags)
-	rootCmd.ParseFlags(os.Args[1:])
+	_ = rootCmd.ParseFlags(os.Args[1:])
 
 	if err := configOpts.InitConfig(); err != nil {
 		panic(err)
@@ -79,8 +81,8 @@ func init() {
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	// errors.MaxStackDepth = 20
 	if err := rootCmd.Execute(); err != nil {
-		_ = log.ErrWithTrace(err)
-		os.Exit(1)
+		log.Fatal(log.ErrWithTrace(err))
 	}
 }
