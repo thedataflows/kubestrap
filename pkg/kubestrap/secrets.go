@@ -11,4 +11,8 @@ type Secrets struct {
 	PrivateKey string `yaml:"private-key"`
 	// Public key path
 	PublicKey string `yaml:"public-key"`
+	// Force overwrites
+	Force bool `yaml:"force"`
+	// SSH Key Size
+	SshKeySize int `yaml:"ssh-key-size"`
 }
