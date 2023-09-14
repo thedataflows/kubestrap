@@ -164,9 +164,9 @@ func (opts *Options) InitConfig() error {
 		return err
 	}
 
-	if log.Logger.GetLevel() == log.TraceLevel {
+	if log.GetLevel() == log.TraceLevel {
 		log.Trace("====== begin viper configuration dump ======")
-		viper.DebugTo(log.Logger)
+		viper.DebugTo(log.Log.GetLogger())
 		time.Sleep(100 * time.Millisecond)
 		log.Trace("====== end viper configuration dump ======")
 	}
@@ -203,7 +203,7 @@ func (opts *Options) setLogging() error {
 		return err
 	}
 	// Enable viper logging but only for debug and trace
-	switch log.Logger.GetLevel() {
+	switch log.GetLevel() {
 	case log.TraceLevel:
 		jww.SetLogThreshold(jww.LevelTrace)
 		jww.SetStdoutThreshold(jww.LevelTrace)

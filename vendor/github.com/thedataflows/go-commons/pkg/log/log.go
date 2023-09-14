@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	Logger     = NewDefaultLogger()
+	Log        = NewDefaultLogger()
 	ParseLevel = zerolog.ParseLevel
 
 	DebugLevel = zerolog.DebugLevel
@@ -38,14 +38,52 @@ var (
 	LogFormats = []string{"console", "json"}
 )
 
-func NewDefaultLogger() zerolog.Logger {
+type CustomLogger struct {
+	zerolog.Logger
+}
+
+func (l *CustomLogger) Tracef(format string, args ...interface{}) {
+	l.Trace().Msgf(format, args...)
+}
+func (l *CustomLogger) Debugf(format string, args ...interface{}) {
+	l.Debug().Msgf(format, args...)
+}
+
+func (l *CustomLogger) Errorf(format string, args ...interface{}) {
+	l.Error().Msgf(format, args...)
+}
+
+func (l *CustomLogger) Warnf(format string, args ...interface{}) {
+	l.Warn().Msgf(format, args...)
+}
+
+func (l *CustomLogger) Infof(format string, args ...interface{}) {
+	l.Info().Msgf(format, args...)
+}
+
+func (l *CustomLogger) SetLogger(logger zerolog.Logger) {
+	l.Logger = logger
+}
+
+func (l *CustomLogger) GetLogger() *zerolog.Logger {
+	return &l.Logger
+}
+
+func GetLevel() zerolog.Level {
+	return Log.GetLogger().GetLevel()
+}
+
+func NewDefaultLogger() CustomLogger {
 	output := zerolog.ConsoleWriter{
 		Out:        PreferredWriter(),
-		TimeFormat: time.RFC3339}
-	return zerolog.New(output).
-		With().
-		Timestamp().
-		Logger()
+		TimeFormat: time.RFC3339,
+	}
+	return CustomLogger{
+		zerolog.New(output).
+			With().
+			Timestamp().
+			Logger(),
+	}
 }
 
 func IsValidLogFormat(format string) error {
@@ -66,7 +104,7 @@ func SetLogFormat(format string) error {
 	// This is the current default
 	// case "console":
 	case "json":
-		Logger = Logger.Output(PreferredWriter())
+		Log.SetLogger(Log.GetLogger().Output(PreferredWriter()))
 	}
 	return nil
 }
@@ -83,70 +121,70 @@ func SetLogLevel(format string) error {
 	if err != nil {
 		return err
 	}
-	Logger = Logger.Level(parsedLevel)
+	Log.SetLogger(Log.GetLogger().Level(parsedLevel))
 	return nil
 }
 
 func Trace(i ...interface{}) {
-	Logger.Trace().Msg(fmt.Sprint(i...))
+	Log.GetLogger().Trace().Msg(fmt.Sprint(i...))
 }
 
 func Tracef(format string, i ...interface{}) {
-	Logger.Trace().Msgf(format, i...)
+	Log.GetLogger().Trace().Msgf(format, i...)
 }
 
 func Debug(i ...interface{}) {
-	Logger.Debug().Msg(fmt.Sprint(i...))
+	Log.GetLogger().Debug().Msg(fmt.Sprint(i...))
 }
 
 func Debugf(format string, i ...interface{}) {
-	Logger.Debug().Msgf(format, i...)
+	Log.GetLogger().Debug().Msgf(format, i...)
 }
 
 func Info(i ...interface{}) {
-	Logger.Info().Msg(fmt.Sprint(i...))
+	Log.GetLogger().Info().Msg(fmt.Sprint(i...))
 }
 
 func Infof(format string, i ...interface{}) {
-	Logger.Info().Msgf(format, i...)
+	Log.GetLogger().Info().Msgf(format, i...)
 }
 
 func Warn(i ...interface{}) {
-	Logger.Warn().Msg(fmt.Sprint(i...))
+	Log.GetLogger().Warn().Msg(fmt.Sprint(i...))
 }
 
 func Warnf(format string, i ...interface{}) {
-	Logger.Warn().Msgf(format, i...)
+	Log.GetLogger().Warn().Msgf(format, i...)
 }
 
 func Error(i ...interface{}) {
-	Logger.Error().Msg(fmt.Sprint(i...))
+	Log.GetLogger().Error().Msg(fmt.Sprint(i...))
 }
 
 func Errorf(format string, i ...interface{}) {
-	Logger.Error().Msgf(format, i...)
+	Log.GetLogger().Error().Msgf(format, i...)
 }
 
 func Fatal(i ...interface{}) {
-	Logger.Fatal().Msg(fmt.Sprint(i...))
+	Log.GetLogger().Fatal().Msg(fmt.Sprint(i...))
 }
 
 func Fatalf(format string, i ...interface{}) {
-	Logger.Fatal().Msgf(format, i...)
+	Log.GetLogger().Fatal().Msgf(format, i...)
 }
 
 func Panic(i ...interface{}) {
-	Logger.Panic().Msg(fmt.Sprint(i...))
+	Log.GetLogger().Panic().Msg(fmt.Sprint(i...))
 }
 
 func Panicf(format string, i ...interface{}) {
-	Logger.Panic().Msgf(format, i...)
+	Log.GetLogger().Panic().Msgf(format, i...)
 }
 
 func Print(i ...interface{}) {
-	Logger.WithLevel(zerolog.NoLevel).Str("level", "-").Msg(fmt.Sprint(i...))
+	Log.GetLogger().WithLevel(zerolog.NoLevel).Str("level", "-").Msg(fmt.Sprint(i...))
 }
 
 func Printf(format string, i ...interface{}) {
-	Logger.WithLevel(zerolog.NoLevel).Str("level", "-").Msgf(format, i...)
+	Log.GetLogger().WithLevel(zerolog.NoLevel).Str("level", "-").Msgf(format, i...)
 }
