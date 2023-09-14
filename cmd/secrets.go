@@ -205,7 +205,7 @@ func GenerateAgeKeys(cmd *cobra.Command) error {
 	}
 
 	if !file.IsAccessible(secretsPublicKeyPath) {
-		// try to create the private key
+		// try to create the public key
 		if err = RunRawCommand(
 			rawCmd,
 			[]string{
