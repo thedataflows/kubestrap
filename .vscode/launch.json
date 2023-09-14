@@ -15,8 +15,9 @@
             "cwd": "${workspaceFolder}",
             "program": "${workspaceFolder}/main.go",
             "args": [
-                "secrets",
-                "bootstrap"
+                "--log-level",
+                "debug",
+                "cluster"
             ]
         }
     ]
