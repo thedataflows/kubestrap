@@ -1,4 +1,4 @@
-log-level: error
+log-level: info
 raw:
   # timeout: 1m0s
   raw-output: true
