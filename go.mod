@@ -7,7 +7,7 @@ require (
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/go-cmd/cmd v1.4.2
 	github.com/go-git/go-git/v5 v5.8.1
-	github.com/goccy/go-yaml v1.11.1
+	github.com/goccy/go-yaml v1.11.2
 	github.com/k0sproject/k0sctl v0.15.5
 	github.com/k0sproject/rig v0.13.0
 	github.com/mholt/archiver/v4 v4.0.0-alpha.8
@@ -15,7 +15,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.23.8
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
-	github.com/thedataflows/go-commons v1.10.1
+	github.com/thedataflows/go-commons v1.10.3
 	golang.org/x/crypto v0.13.1-0.20230910182515-3f0842a46434
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 	golang.org/x/term v0.12.0
