@@ -18,7 +18,7 @@ help:
 
 ## build: build
 build:
-	bash ./scripts/local-build.sh
+	goreleaser build --snapshot --clean --single-target
 
 ## lint: Lint with golangci-lint
 lint:
