@@ -248,8 +248,8 @@ github.com/go-playground/universal-translator
 # github.com/go-playground/validator/v10 v10.15.0
 ## explicit; go 1.18
 github.com/go-playground/validator/v10
-# github.com/goccy/go-yaml v1.11.1
-## explicit; go 1.18
+# github.com/goccy/go-yaml v1.11.2
+## explicit; go 1.19
 github.com/goccy/go-yaml
 github.com/goccy/go-yaml/ast
 github.com/goccy/go-yaml/internal/errors
@@ -540,7 +540,7 @@ github.com/spf13/viper/internal/encoding/yaml
 # github.com/subosito/gotenv v1.4.2
 ## explicit; go 1.18
 github.com/subosito/gotenv
-# github.com/thedataflows/go-commons v1.10.1
+# github.com/thedataflows/go-commons v1.10.3
 ## explicit; go 1.21
 github.com/thedataflows/go-commons/pkg/config
 github.com/thedataflows/go-commons/pkg/defaults

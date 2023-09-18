@@ -155,7 +155,7 @@ func (opts *Options) InitConfig() error {
 		}
 		viper.AddConfigPath(p)
 		if err := viper.MergeInConfig(); err != nil {
-			log.Warnf("%s", err)
+			log.Debugf("%s", err)
 		}
 	}
 
