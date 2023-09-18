@@ -1,2 +1,21 @@
-# log-level: debug
-# log-format: json
+log-level: info
+flux:
+  context: &context mycontext
+  bootstrap:
+    # path: kubernetes/cluster-mycontext/flux-system
+    ## https://fluxcd.io/flux/cmd/flux_bootstrap_gitlab/
+    # subcommand: |
+    #   gitlab
+    #   --components-extra=image-reflector-controller,image-automation-controller
+    #   --owner=owner-name
+    #   --repository=repo-name
+    #   --branch=main
+    #   --token-auth
+  reconcile: kustomization flux-system --with-source
+secrets:
+  context: *context
+  # bootstrap-path: bootstrap/cluster-mycontext
+  # force: true
+cluster:
+  context: *context
+  # path: bootstrap/cluster-mycontext
