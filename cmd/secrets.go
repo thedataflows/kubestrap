@@ -4,6 +4,7 @@ Copyright © 2023 Dataflows
 package cmd
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -142,11 +143,13 @@ func RunSecretsCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	log.Info("Generating source files encryption keys")
 	if err := GenerateAgeKeys(cmd); err != nil {
-		return err
+		log.Warnf("Error generating source files encryption keys: %s", err)
 	}
 
 	// Try to generate ssh private key if not exists, but continue on failure
+	log.Info("Generating SSH keys")
 	if err := GenerateSshKeys("cluster.ssh"); err != nil {
 		log.Warnf("Error generating SSH keys: %s", err)
 	}
@@ -160,7 +163,7 @@ func GenerateAgeKeys(cmd *cobra.Command) error {
 	}
 
 	encrypt := false
-	if !file.IsAccessible(secretsPrivateKeyPath) {
+	if !file.IsAccessible(secretsPrivateKeyPath+".enc") || secretsForce {
 		// Create the private key
 		if err = RunRawCommand(
 			rawCmd,
@@ -293,13 +296,22 @@ func GenerateECDSAKeys(bitSize int) (pubKey string, privKey string, err error) {
 
 	// encrypt private key with password from stdin
 	fmt.Print("Enter password: ")
-	password, err := term.ReadPassword(int(os.Stdin.Fd()))
+	password1, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
 		return "", "", err
 	}
 	fmt.Println()
+	fmt.Print("Confirm password: ")
+	password2, err := term.ReadPassword(int(os.Stdin.Fd()))
+	if err != nil {
+		return "", "", err
+	}
+	fmt.Println()
+	if !bytes.Equal(password1, password2) {
+		return "", "", fmt.Errorf("passwords do not match")
+	}
 	var privBlock *pem.Block
-	if privBlock, err = ssh.MarshalPrivateKeyWithPassphrase(privateKey, "", password); err != nil {
+	if privBlock, err = ssh.MarshalPrivateKeyWithPassphrase(privateKey, "", password2); err != nil {
 		return "", "", err
 	}
 	privBytes := pem.EncodeToMemory(
