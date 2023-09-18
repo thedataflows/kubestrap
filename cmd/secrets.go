@@ -266,6 +266,19 @@ func GenerateSshKeys(keyFileBase string) error {
 	return nil
 }
 
+func randomBytes(length int) []byte {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, length)
+	_, err := rand.Read(b)
+	if err != nil {
+		return nil
+	}
+	for i := 0; i < length; i++ {
+		b[i] = charset[b[i]%byte(len(charset))]
+	}
+	return b
+}
+
 // GenerateECDSAKeys generates ECDSA public and private key pair with given size for SSH.
 func GenerateECDSAKeys(bitSize int) (pubKey string, privKey string, err error) {
 	// generate private key
@@ -294,24 +307,27 @@ func GenerateECDSAKeys(bitSize int) (pubKey string, privKey string, err error) {
 	}
 	pubBytes := ssh.MarshalAuthorizedKey(publicKey)
 
-	// encrypt private key with password from stdin
-	fmt.Print("Enter password: ")
+	// encrypt private key with passphrase from stdin
+	fmt.Fprintln(os.Stderr, "Enter passphrase for SSH key or leave blank to generate:")
 	password1, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
 		return "", "", err
 	}
-	fmt.Println()
-	fmt.Print("Confirm password: ")
-	password2, err := term.ReadPassword(int(os.Stdin.Fd()))
-	if err != nil {
-		return "", "", err
-	}
-	fmt.Println()
-	if !bytes.Equal(password1, password2) {
-		return "", "", fmt.Errorf("passwords do not match")
+	if len(password1) == 0 {
+		password1 = []byte(randomBytes(32))
+		fmt.Printf("SSH key generated passphrase: %s\n", string(password1))
+	} else {
+		fmt.Fprintln(os.Stderr, "Confirm SSH key passphrase:")
+		password2, err := term.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			return "", "", err
+		}
+		if !bytes.Equal(password1, password2) {
+			return "", "", fmt.Errorf("SSH key passphrases do not match")
+		}
 	}
 	var privBlock *pem.Block
-	if privBlock, err = ssh.MarshalPrivateKeyWithPassphrase(privateKey, "", password2); err != nil {
+	if privBlock, err = ssh.MarshalPrivateKeyWithPassphrase(privateKey, "", password1); err != nil {
 		return "", "", err
 	}
 	privBytes := pem.EncodeToMemory(
