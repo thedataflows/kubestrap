@@ -6,10 +6,11 @@ archives:
         format: zip
     files:
       - README.md
-      - defaults.yaml
+      - kubestrap-defaults.yaml
       - flux-patches.yaml
+      - src: scripts/k.sh
+        dst: k.sh
     name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}"
-    rlcp: true
 builds:
   - env:
       - CGO_ENABLED=0

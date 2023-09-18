@@ -6,5 +6,5 @@ const (
 	Windows           = "windows"
 	Linux             = "linux"
 	Darwin            = "darwin"
-	DefaultConfigName = "defaults"
+	DefaultConfigName = "kubestrap-defaults"
 )
