@@ -31,14 +31,25 @@ var rawCmd = &cobra.Command{
 	Aliases: []string{"r"},
 }
 
-func initRawCmd() {
-	rawCmd.SilenceErrors = rootCmd.SilenceErrors
+func init() {
 	rootCmd.AddCommand(rawCmd)
+	rawCmd.SilenceErrors = rawCmd.Parent().SilenceErrors
 
 	d, _ := time.ParseDuration("1m0s")
-	rawCmd.Flags().DurationP(keyRawTimeout, "t", d, "Timeout for executing raw command. After time elapses, the command will be terminated")
-	rawCmd.Flags().BoolP(keyRawRawOutput, "r", true, "Display raw output, outside of the logger")
+	rawCmd.Flags().DurationP(
+		keyRawTimeout,
+		"t",
+		d,
+		"Timeout for executing raw command. After time elapses, the command will be terminated",
+	)
+	rawCmd.Flags().BoolP(
+		keyRawRawOutput,
+		"r",
+		true,
+		"Display raw output, outside of the logger",
+	)
 
+	// Bind flags
 	config.ViperBindPFlagSet(rawCmd, nil)
 }
 

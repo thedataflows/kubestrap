@@ -31,16 +31,24 @@ var (
 
 // fluxBootstrapCmd represents the fluxBootstrap command
 var fluxBootstrapCmd = &cobra.Command{
-	Use:     "bootstrap",
-	Short:   "Bootstrap or upgrade FluxCD",
-	Long:    ``,
+	Use:   "bootstrap",
+	Short: "Bootstrap or upgrade FluxCD",
+	Long:  ``,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		fluxBootstrapPath = fmt.Sprintf(
+			"kubernetes/cluster-%s/%s",
+			fluxContext,
+			fluxNamespace,
+		)
+		return nil
+	},
 	RunE:    RunFluxBoostrapCommand,
 	Aliases: []string{"b"},
 }
 
-func initFluxBootstrapCmd() {
-	fluxBootstrapCmd.SilenceErrors = rootCmd.SilenceErrors
+func init() {
 	fluxCmd.AddCommand(fluxBootstrapCmd)
+	fluxBootstrapCmd.SilenceErrors = fluxBootstrapCmd.Parent().SilenceErrors
 
 	fluxBootstrapPath = config.ViperGetString(fluxBootstrapCmd, keyFluxBootstrapPath)
 	if len(fluxBootstrapPath) == 0 {
@@ -72,6 +80,7 @@ func initFluxBootstrapCmd() {
 		"FluxCD patches file",
 	)
 
+	// Bind flags
 	config.ViperBindPFlagSet(fluxBootstrapCmd, nil)
 }
 

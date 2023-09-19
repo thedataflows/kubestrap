@@ -51,14 +51,24 @@ var secretsCmd = &cobra.Command{
 	Short:   "Manages local encrypted secrets. Generates age and ssh keys.",
 	Long:    ``,
 	Aliases: []string{"s"},
-	RunE:    RunSecretsCommand,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		clusterBootstrapPath = fmt.Sprintf(
+			"bootstrap/cluster-%s",
+			secretContext,
+		)
+		return nil
+	},
+	RunE: RunSecretsCommand,
 }
 
-func initSecretsCmd() {
+func init() {
 	secretsCmd.SilenceErrors = rootCmd.SilenceErrors
 	rootCmd.AddCommand(secretsCmd)
 
 	secretContext = config.ViperGetString(secretsCmd, keySecretsContext)
+	if len(secretContext) == 0 {
+		secretContext = defaults.Undefined
+	}
 	secretsCmd.Flags().StringVarP(
 		&secretContext,
 		keySecretsContext,
@@ -66,9 +76,6 @@ func initSecretsCmd() {
 		secretContext,
 		fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetes.GetKubeconfigPath()),
 	)
-	if len(secretContext) == 0 {
-		secretContext = defaults.Undefined
-	}
 
 	secretsNamespace = config.ViperGetString(secretsCmd, keySecretsNamespace)
 	if len(secretsNamespace) == 0 {
@@ -135,6 +142,7 @@ func initSecretsCmd() {
 		"SSH Private Key Size. Valid values are 224, 256, 384, 521",
 	)
 
+	// Bind flags
 	config.ViperBindPFlagSet(secretsCmd, nil)
 }
 

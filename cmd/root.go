@@ -69,13 +69,6 @@ func init() {
 	if err := configOpts.InitConfig(); err != nil {
 		panic(err)
 	}
-
-	// Init subcommands
-	initClusterCmd()
-	initFluxCmd()
-	initRawCmd()
-	initSecretsCmd()
-	initVersion()
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
