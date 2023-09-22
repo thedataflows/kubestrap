@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -46,6 +47,8 @@ var (
 			},
 		),
 	)
+
+	stdInBytes []byte
 )
 
 func init() {
@@ -69,6 +72,13 @@ func init() {
 	if err := configOpts.InitConfig(); err != nil {
 		panic(err)
 	}
+
+	stat, err := os.Stdin.Stat()
+	mode := stat.Mode() & os.ModeNamedPipe
+	if err == nil && mode == os.ModeNamedPipe {
+		stdInBytes, _ = io.ReadAll(os.Stdin)
+	}
+
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
