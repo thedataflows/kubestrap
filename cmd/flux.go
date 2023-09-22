@@ -19,8 +19,6 @@ var (
 	keyFluxContext    = reflectutil.GetStructFieldTag(typeFlux, "Context", "")
 	keyFluxNamespace  = reflectutil.GetStructFieldTag(typeFlux, "Namespace", "")
 	requiredFluxFlags = []string{keyFluxContext}
-	fluxNamespace     string
-	fluxContext       string
 )
 
 // fluxCmd represents the flux command
@@ -28,35 +26,25 @@ var fluxCmd = &cobra.Command{
 	Use:     "flux",
 	Short:   "FluxCD wrapper",
 	Long:    ``,
-	RunE:    RunFluxCommand,
 	Aliases: []string{"f"},
+	RunE:    RunFluxCommand,
 }
 
 func init() {
 	rootCmd.AddCommand(fluxCmd)
 	fluxCmd.SilenceErrors = fluxCmd.Parent().SilenceErrors
 
-	fluxContext = config.ViperGetString(fluxCmd, keyFluxContext)
-	if len(fluxContext) == 0 {
-		fluxContext = defaults.Undefined
-	}
-	fluxCmd.PersistentFlags().StringVarP(
-		&fluxContext,
+	fluxCmd.PersistentFlags().StringP(
 		keyFluxContext,
 		"c",
-		fluxContext,
+		defaults.Undefined,
 		fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetes.GetKubeconfigPath()),
 	)
 
-	fluxNamespace = config.ViperGetString(fluxCmd, keyFluxNamespace)
-	if len(fluxNamespace) == 0 {
-		fluxNamespace = "flux-system"
-	}
-	fluxCmd.PersistentFlags().StringVarP(
-		&fluxNamespace,
+	fluxCmd.PersistentFlags().StringP(
 		keyFluxNamespace,
 		"n",
-		fluxNamespace,
+		"flux-system",
 		"Kubernetes namespace for FluxCD",
 	)
 
@@ -69,6 +57,8 @@ func RunFluxCommand(cmd *cobra.Command, args []string) error {
 	if err := config.CheckRequiredFlags(cmd, requiredFluxFlags); err != nil {
 		return err
 	}
+
+	fluxNamespace := config.ViperGetString(cmd, keyFluxNamespace)
 
 	newArgs := []string{cmd.Use}
 	newArgs = config.AppendStringArgsf("--%s=%s", cmd, newArgs, keyFluxContext)
