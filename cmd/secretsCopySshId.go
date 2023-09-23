@@ -25,79 +25,84 @@ import (
 	"golang.org/x/term"
 )
 
-const (
-	keySecretsCopySshIdHosts          = "hosts"
-	keySecretsCopySshIdPrivateKeyFile = "private-key-file"
-)
+// const (
+// 	keySecretsCopySshIdHosts          = "hosts"
+// 	keySecretsCopySshIdPrivateKeyFile = "private-key-file"
+// )
 
-var defaultSecretsCopySshIdPrivateKeyFile = fmt.Sprintf("bootstrap/cluster-%s/%s", defaults.Undefined, constants.DefaultClusterSshKeyFileName)
+// var defaultSecretsCopySshIdPrivateKeyFile = fmt.Sprintf("bootstrap/cluster-%s/%s", defaults.Undefined, constants.DefaultClusterSshKeyFileName)
+
+type SecretsCopySshId struct {
+	cmd    *cobra.Command
+	parent *Secrets
+}
 
 // SecretsCopySshIdCmd represents the SecretsCopySshId command
-var secretsCopySshIdCmd = &cobra.Command{
-	Use:     "copy-ssh-id",
-	Short:   "Copy SSH Identities to remote hosts",
-	Long:    ``,
-	Aliases: []string{"c"},
-	RunE:    RunSecretsCopySshIdCommand,
-}
+var (
+	secretsCopySshIdCmd = &cobra.Command{
+		Use:     "copy-ssh-id",
+		Short:   "Copy SSH Identities to remote hosts",
+		Long:    ``,
+		Aliases: []string{"c"},
+		RunE:    RunSecretsCopySshIdCommand,
+	}
+
+	secretsCopySshId = NewSecretsCopySshId(secrets)
+)
 
 func init() {
 	secretsCmd.AddCommand(secretsCopySshIdCmd)
 	secretsCopySshIdCmd.SilenceErrors = secretsCopySshIdCmd.Parent().SilenceErrors
 
 	secretsCopySshIdCmd.Flags().StringSlice(
-		keySecretsCopySshIdHosts,
-		nil,
+		secretsCopySshId.KeyHosts(),
+		secretsCopySshId.DefaultHosts(),
 		"List of hosts defined in the cluster. If not specified, will run on all hosts",
 	)
 
 	secretsCopySshIdCmd.Flags().StringP(
-		keySecretsCopySshIdPrivateKeyFile,
+		secretsCopySshId.KeyPrivateKeyFile(),
 		"k",
-		defaultSecretsCopySshIdPrivateKeyFile,
+		secretsCopySshId.DefaultPrivateKeyFile(),
 		"Private key file to use for SSH authentication",
 	)
 
 	// Bind flags
 	config.ViperBindPFlagSet(secretsCopySshIdCmd, nil)
+
+	secretsCopySshId.SetCmd(secretsCopySshIdCmd)
 }
 
 func RunSecretsCopySshIdCommand(cmd *cobra.Command, args []string) error {
-	if err := config.CheckRequiredFlags(cmd.Parent(), requiredSecretsFlags); err != nil {
+	if err := secretsCopySshId.CheckRequiredFlags(); err != nil {
 		return err
 	}
 
 	// Try to copy ssh identity to the cluster
 	// Load cluster spec
-	secretsContext := config.ViperGetString(cmd.Parent(), keySecretsContext)
-	clusterBootstrapPath := config.ViperGetString(cmd.Parent(), keyClusterBootstrapPath)
-	if clusterBootstrapPath == defaultClusterBootstrapPath {
-		clusterBootstrapPath = fmt.Sprintf("bootstrap/cluster-%s", secretsContext)
-	}
-	secretsCopySshIdHosts := config.ViperGetStringSlice(cmd, keySecretsCopySshIdHosts)
-	secretsCopySshIdPrivateKeyFile := config.ViperGetString(cmd, keySecretsCopySshIdPrivateKeyFile)
-	if secretsCopySshIdPrivateKeyFile == defaultSecretsCopySshIdPrivateKeyFile {
-		secretsCopySshIdPrivateKeyFile = fmt.Sprintf("bootstrap/cluster-%s/%s", secretsContext, constants.DefaultClusterSshKeyFileName)
-	}
-
+	secretsContext := secretsCopySshId.parent.GetSecretsContext()
+	clusterBootstrapPath := secretsCopySshId.parent.GetClusterBootstrapPath()
 	cl, err := kubestrap.NewK0sCluster(secretsContext, clusterBootstrapPath)
 	if err != nil {
 		return err
 	}
+	filterHosts := secretsCopySshId.GetHosts()
 	hosts := cl.GetClusterSpec().Spec.Hosts.Filter(
 		func(h *cluster.Host) bool {
-			for _, filterHost := range secretsCopySshIdHosts {
+			for _, filterHost := range filterHosts {
 				if h.Address() == filterHost || h.Metadata.Hostname == filterHost || h.HostnameOverride == filterHost {
 					return true
 				}
 			}
-			return len(secretsCopySshIdHosts) == 0
+			return len(filterHosts) == 0
 		},
 	)
+
 	// read private key
-	identity, err := os.ReadFile(secretsCopySshIdPrivateKeyFile)
+	privateKeyFile := secretsCopySshId.GetPrivateKeyFile()
+	identity, err := os.ReadFile(privateKeyFile)
 	if err != nil {
-		log.Warnf("Error reading private key file %s: %v", secretsCopySshIdPrivateKeyFile, err)
+		log.Warnf("Error reading private key file %s: %v", privateKeyFile, err)
 	}
 
 	for i := 0; i < len(hosts); i += 1 {
@@ -248,6 +253,7 @@ func connectToHost(user, host string, port int, rawPrivateKey []byte) (*ssh.Clie
 		},
 	))
 
+	/* #nosec */
 	clientConfig := &ssh.ClientConfig{
 		User:            user,
 		Auth:            authMethods,
@@ -301,4 +307,47 @@ func runSshCopyIdScript(host, clusterBootstrapPath string) error {
 	}
 
 	return nil
+}
+
+func NewSecretsCopySshId(parent *Secrets) *SecretsCopySshId {
+	return &SecretsCopySshId{
+		parent: parent,
+	}
+}
+
+func (s *SecretsCopySshId) SetCmd(cmd *cobra.Command) {
+	s.cmd = cmd
+}
+
+func (s *SecretsCopySshId) CheckRequiredFlags() error {
+	return s.parent.CheckRequiredFlags()
+}
+
+// Flags keys, defaults and value getters
+func (s *SecretsCopySshId) KeyHosts() string {
+	return "hosts"
+}
+
+func (s *SecretsCopySshId) DefaultHosts() []string {
+	return []string{}
+}
+
+func (s *SecretsCopySshId) GetHosts() []string {
+	return config.ViperGetStringSlice(s.cmd, s.KeyHosts())
+}
+
+func (s *SecretsCopySshId) KeyPrivateKeyFile() string {
+	return "private-key-file"
+}
+
+func (s *SecretsCopySshId) DefaultPrivateKeyFile() string {
+	return fmt.Sprintf("bootstrap/cluster-%s/%s", defaults.Undefined, constants.DefaultClusterSshKeyFileName)
+}
+
+func (s *SecretsCopySshId) GetPrivateKeyFile() string {
+	privateKeyFile := config.ViperGetString(s.cmd, s.KeyPrivateKeyFile())
+	if privateKeyFile == s.DefaultPrivateKeyFile() {
+		privateKeyFile = s.parent.GetClusterBootstrapPath() + "/" + constants.DefaultClusterSshKeyFileName
+	}
+	return privateKeyFile
 }

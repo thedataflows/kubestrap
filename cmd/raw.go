@@ -16,48 +16,52 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-const (
-	keyRawUtilities = "utilities"
-	keyRawTimeout   = "timeout"
-	keyRawRawOutput = "raw-output"
-)
+type Raw struct {
+	cmd    *cobra.Command
+	parent *Root
+}
 
 // rawCmd represents the raw command
-var rawCmd = &cobra.Command{
-	Use:     "raw",
-	Short:   "Directly run one of the predefined utilities. To pass flags for the raw command, use --",
-	Long:    ``,
-	RunE:    RunRawCommand,
-	Aliases: []string{"r"},
-}
+var (
+	rawCmd = &cobra.Command{
+		Use:     "raw",
+		Short:   "Directly run one of the predefined utilities. To pass flags for the raw command, use --",
+		Long:    ``,
+		RunE:    RunRawCommand,
+		Aliases: []string{"r"},
+	}
+
+	raw = NewRaw(root)
+)
 
 func init() {
 	rootCmd.AddCommand(rawCmd)
 	rawCmd.SilenceErrors = rawCmd.Parent().SilenceErrors
 
-	d, _ := time.ParseDuration("1m0s")
 	rawCmd.Flags().DurationP(
-		keyRawTimeout,
+		raw.KeyTimeout(),
 		"t",
-		d,
+		raw.DefaultTimeout(),
 		"Timeout for executing raw command. After time elapses, the command will be terminated",
 	)
 	rawCmd.Flags().BoolP(
-		keyRawRawOutput,
+		raw.KeyRawOutput(),
 		"r",
-		true,
+		raw.DefaultRawOutput(),
 		"Display raw output, outside of the logger",
 	)
 
 	// Bind flags
 	config.ViperBindPFlagSet(rawCmd, nil)
+
+	raw.SetCmd(rawCmd)
 }
 
 // RunRawCommand unmarshal commands and executes with provided arguments
 func RunRawCommand(cmd *cobra.Command, args []string) error {
 	var commands []kubestrap.RawCommand
 	if err := viper.UnmarshalKey(
-		config.PrefixKey(cmd, keyRawUtilities),
+		config.PrefixKey(cmd, raw.KeyRawUtilities()),
 		&commands,
 		func(config *mapstructure.DecoderConfig) {
 			config.TagName = "yaml"
@@ -77,10 +81,10 @@ func RunRawCommand(cmd *cobra.Command, args []string) error {
 	}
 	for _, c := range commands {
 		if c.Name == args[0] || slices.Contains(c.Additional, args[0]) {
-			timeout := config.ViperGetDuration(cmd, keyRawTimeout)
+			timeout := raw.GetTimeout()
 			log.Debugf("execution timeout: %s", timeout)
 			c.Command = args
-			retCode, err := c.ExecuteCommand(timeout, config.ViperGetBool(cmd, keyRawRawOutput), false)
+			retCode, err := c.ExecuteCommand(timeout, raw.GetRawOutput(), false)
 			if retCode != 0 {
 				log.Errorf("command '%s' failed with code %d", args[0], retCode)
 			}
@@ -90,4 +94,44 @@ func RunRawCommand(cmd *cobra.Command, args []string) error {
 	}
 	// If we get here, the command is not in the config, do not allow that
 	return fmt.Errorf("command '%s' is not supported, perhaps add it to the config?", args[0])
+}
+
+func NewRaw(parent *Root) *Raw {
+	return &Raw{
+		parent: parent,
+	}
+}
+
+func (r *Raw) SetCmd(cmd *cobra.Command) {
+	r.cmd = cmd
+}
+
+// Flags keys, defaults and value getters
+func (r *Raw) KeyTimeout() string {
+	return "timeout"
+}
+
+func (r *Raw) DefaultTimeout() time.Duration {
+	d, _ := time.ParseDuration("1m0s")
+	return d
+}
+
+func (r *Raw) GetTimeout() time.Duration {
+	return config.ViperGetDuration(r.cmd, r.KeyTimeout())
+}
+
+func (r *Raw) KeyRawOutput() string {
+	return "raw-output"
+}
+
+func (r *Raw) DefaultRawOutput() bool {
+	return true
+}
+
+func (r *Raw) GetRawOutput() bool {
+	return config.ViperGetBool(r.cmd, r.KeyRawOutput())
+}
+
+func (r *Raw) KeyRawUtilities() string {
+	return "raw-utilities"
 }

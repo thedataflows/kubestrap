@@ -12,94 +12,83 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/spf13/cobra"
 	"github.com/thedataflows/go-commons/pkg/config"
-	"github.com/thedataflows/go-commons/pkg/defaults"
 	"github.com/thedataflows/go-commons/pkg/log"
 	"sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
-var defaultFluxBootstrapPath = fmt.Sprintf("kubernetes/cluster-%s/flux-system", defaults.Undefined)
-
-const (
-	keyFluxBootstrapPath       = "path"
-	keyFluxBootstrapSubCommand = "subcommand"
-	keyFluxPatchesFile         = "patches-file"
-)
+type FluxBootstrap struct {
+	cmd    *cobra.Command
+	parent *Flux
+}
 
 // fluxBootstrapCmd represents the fluxBootstrap command
-var fluxBootstrapCmd = &cobra.Command{
-	Use:     "bootstrap",
-	Short:   "Bootstrap or upgrade FluxCD",
-	Long:    ``,
-	Aliases: []string{"b"},
-	RunE:    RunFluxBoostrapCommand,
-}
+var (
+	fluxBootstrapCmd = &cobra.Command{
+		Use:     "bootstrap",
+		Short:   "Bootstrap or upgrade FluxCD",
+		Long:    ``,
+		Aliases: []string{"b"},
+		RunE:    RunFluxBoostrapCommand,
+	}
+
+	fluxBootstrap = NewFluxBootstrap(flux)
+)
 
 func init() {
 	fluxCmd.AddCommand(fluxBootstrapCmd)
 	fluxBootstrapCmd.SilenceErrors = fluxBootstrapCmd.Parent().SilenceErrors
 
 	fluxBootstrapCmd.Flags().StringP(
-		keyFluxBootstrapPath,
+		fluxBootstrap.KeyFluxBootstrapPath(),
 		"p",
-		defaultFluxBootstrapPath,
+		fluxBootstrap.DefaultFluxBootstrapPath(),
 		"FluxCD system path in the current repo",
 	)
 
 	fluxBootstrapCmd.Flags().String(
-		keyFluxBootstrapSubCommand,
-		"",
+		fluxBootstrap.KeyFluxBootstrapCommand(),
+		fluxBootstrap.DefaultFluxBootstrapCommand(),
 		"FluxCD bootstrap command",
 	)
 
 	fluxBootstrapCmd.Flags().String(
-		keyFluxPatchesFile,
-		"flux-patches.yaml",
+		fluxBootstrap.KeyFluxBootstrapPatchesFile(),
+		fluxBootstrap.DefaultBootstrapPatchesFile(),
 		"FluxCD patches file",
 	)
 
 	// Bind flags
 	config.ViperBindPFlagSet(fluxBootstrapCmd, nil)
+
+	fluxBootstrap.SetCmd(fluxBootstrapCmd)
 }
 
 // RunFluxBoostrapCommand runs flux bootstrap subcommand
 func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
-	if err := config.CheckRequiredFlags(cmd.Parent(), requiredFluxFlags); err != nil {
+	if err := fluxBootstrap.CheckRequiredFlags(); err != nil {
 		return err
 	}
-	if err := config.CheckRequiredFlags(cmd, []string{keyFluxBootstrapSubCommand}); err != nil {
-		return err
-	}
-
-	fluxNamespace := config.ViperGetString(cmd.Parent(), keyFluxNamespace)
-	fluxBootstrapPath := config.ViperGetString(cmd, keyFluxBootstrapPath)
-	if fluxBootstrapPath == defaultFluxBootstrapPath {
-		fluxBootstrapPath = fmt.Sprintf(
-			"kubernetes/cluster-%s/%s",
-			config.ViperGetString(cmd.Parent(), keyFluxContext),
-			fluxNamespace,
-		)
-	}
-	fluxPatchesFile := config.ViperGetString(cmd, keyFluxPatchesFile)
 
 	// Run the main command
 	newArgs := []string{cmd.Parent().Use, cmd.Use}
-	newArgs = config.AppendStringArgsf("--%s=%s", cmd.Parent(), newArgs, keyFluxContext)
+	newArgs = config.AppendStringArgsf("--%s=%s", cmd.Parent(), newArgs, fluxBootstrap.parent.KeyFluxContext())
 	if len(args) > 0 {
 		newArgs = append(newArgs, args...)
 	} else {
-		newArgs = append(newArgs, fmt.Sprintf("--%s=%s", keyFluxNamespace, fluxNamespace))
-		newArgs = config.AppendStringSplitArgs(cmd, newArgs, keyFluxBootstrapSubCommand, "")
+		newArgs = append(newArgs, fmt.Sprintf("--%s=%s", fluxBootstrap.parent.KeyFluxNamespace(), fluxBootstrap.parent.GetFluxNamespace()))
+		newArgs = config.AppendStringSplitArgs(cmd, newArgs, fluxBootstrap.KeyFluxBootstrapCommand(), "")
 	}
 	if err := RunRawCommand(rawCmd, newArgs); err != nil {
 		return err
 	}
 
+	projectRootDir := root.GetProjectRoot()
 	// Patch flux kustomization
 	kustomizationFilePath := fmt.Sprintf(
 		"%s/%s/kustomization.yaml",
 		projectRootDir,
-		fluxBootstrapPath,
+		fluxBootstrap.GetFluxBootstrapPath(),
 	)
 	kData, err := os.ReadFile(kustomizationFilePath)
 	if err != nil {
@@ -110,7 +99,7 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 	if err = yaml.Unmarshal(kData, &k); err != nil {
 		return err
 	}
-	pData, err := os.ReadFile(fluxPatchesFile)
+	pData, err := os.ReadFile(fluxBootstrap.GetFluxBootstrapPatchesFile())
 	if err != nil {
 		return err
 	}
@@ -155,4 +144,70 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func NewFluxBootstrap(parent *Flux) *FluxBootstrap {
+	return &FluxBootstrap{
+		parent: parent,
+	}
+}
+
+func (f *FluxBootstrap) SetCmd(cmd *cobra.Command) {
+	f.cmd = cmd
+}
+
+func (f *FluxBootstrap) CheckRequiredFlags() error {
+	if err := config.CheckRequiredFlags(f.cmd, []string{f.KeyFluxBootstrapCommand()}); err != nil {
+		return err
+	}
+	return f.parent.CheckRequiredFlags()
+}
+
+// Flags keys, defaults and value getters
+func (f *FluxBootstrap) KeyFluxBootstrapPath() string {
+	return "path"
+}
+
+func (f *FluxBootstrap) DefaultFluxBootstrapPath() string {
+	return fmt.Sprintf(
+		"kubernetes/cluster-%s/%s",
+		f.parent.DefaultFluxContext(),
+		f.parent.DefaultFluxNamespace(),
+	)
+}
+
+func (f *FluxBootstrap) GetFluxBootstrapPath() string {
+	fluxBootstrapPath := config.ViperGetString(f.cmd, f.KeyFluxBootstrapPath())
+	if fluxBootstrapPath == f.DefaultFluxBootstrapPath() {
+		fluxBootstrapPath = fmt.Sprintf(
+			"kubernetes/cluster-%s/%s",
+			f.parent.GetFluxContext(),
+			f.parent.GetFluxNamespace(),
+		)
+	}
+	return fluxBootstrapPath
+}
+
+func (f *FluxBootstrap) KeyFluxBootstrapCommand() string {
+	return "command"
+}
+
+func (f *FluxBootstrap) DefaultFluxBootstrapCommand() string {
+	return ""
+}
+
+func (f *FluxBootstrap) GetFluxBootstrapCommand() string {
+	return config.ViperGetString(f.cmd, f.KeyFluxBootstrapCommand())
+}
+
+func (f *FluxBootstrap) KeyFluxBootstrapPatchesFile() string {
+	return "patches-file"
+}
+
+func (f *FluxBootstrap) DefaultBootstrapPatchesFile() string {
+	return "flux-patches.yaml"
+}
+
+func (f *FluxBootstrap) GetFluxBootstrapPatchesFile() string {
+	return config.ViperGetString(f.cmd, f.KeyFluxBootstrapPatchesFile())
 }

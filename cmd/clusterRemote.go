@@ -11,53 +11,55 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/thedataflows/go-commons/pkg/config"
 	"github.com/thedataflows/go-commons/pkg/log"
-	"github.com/thedataflows/go-commons/pkg/reflectutil"
 	"github.com/thedataflows/kubestrap/pkg/kubestrap"
 )
 
-var (
-	typeClusterRemote     = &kubestrap.Remote{}
-	keyClusterRemoteHosts = reflectutil.GetStructFieldTag(typeClusterRemote, "Hosts", "")
-	clusterRemoteHosts    []string
-)
+type ClusterRemote struct {
+	cmd    *cobra.Command
+	parent *Cluster
+}
 
 // clusterRemoteCmd represents the clusterRemote command
-var clusterRemoteCmd = &cobra.Command{
-	Use:     "remote",
-	Short:   "Execute command clusterRemotely on the cluster",
-	Long:    ``,
-	RunE:    RunClusterRemoteCommand,
-	Aliases: []string{"r"},
-}
+var (
+	clusterRemoteCmd = &cobra.Command{
+		Use:     "remote",
+		Short:   "Execute command clusterRemotely on the cluster",
+		Long:    ``,
+		RunE:    RunClusterRemoteCommand,
+		Aliases: []string{"r"},
+	}
+
+	clusterRemote = NewClusterRemote(mycluster)
+)
 
 func init() {
 	clusterCmd.AddCommand(clusterRemoteCmd)
 	clusterRemoteCmd.SilenceErrors = clusterRemoteCmd.Parent().SilenceErrors
 
 	clusterRemoteCmd.Flags().StringSlice(
-		keyClusterRemoteHosts,
-		clusterRemoteHosts,
+		clusterRemote.KeyClusterRemoteHosts(),
+		clusterRemote.DefaultClusterRemoteHosts(),
 		"List of hosts defined in the cluster to run the command on. If not specified, will execute on all hosts",
 	)
 
 	// Bind flags
 	config.ViperBindPFlagSet(clusterRemoteCmd, nil)
 
+	clusterRemote.SetCmd(clusterRemoteCmd)
+
 	rigLog.Log = &log.Log
 }
 
 // RunClusterRemoteCommand runs a command on the cluster
 func RunClusterRemoteCommand(cmd *cobra.Command, args []string) error {
-	if err := config.CheckRequiredFlags(cmd.Parent(), requiredClusterFlags); err != nil {
+	if err := clusterRemote.CheckRequiredFlags(); err != nil {
 		return err
 	}
 
-	clusterContext := config.ViperGetString(cmd.Parent(), keyClusterContext)
-	clusterBootstrapPath := config.ViperGetString(cmd.Parent(), keyClusterBootstrapPath)
-	clusterRemoteHosts = config.ViperGetStringSlice(cmd, keyClusterRemoteHosts)
+	clusterRemoteHosts := clusterRemote.GetClusterRemoteHosts()
 
 	// Load cluster spec
-	cl, err := kubestrap.NewK0sCluster(clusterContext, clusterBootstrapPath)
+	cl, err := kubestrap.NewK0sCluster(clusterRemote.parent.GetClusterContext(), clusterRemote.parent.GetClusterBootstrapPath())
 	if err != nil {
 		return err
 	}
@@ -89,4 +91,31 @@ func RunClusterRemoteCommand(cmd *cobra.Command, args []string) error {
 		log.Infof("Executed '%s' on '%s': %v", remoteCommand, hosts[i].Address(), o)
 	}
 	return nil
+}
+
+func NewClusterRemote(parent *Cluster) *ClusterRemote {
+	return &ClusterRemote{
+		parent: parent,
+	}
+}
+
+func (c *ClusterRemote) SetCmd(cmd *cobra.Command) {
+	c.cmd = cmd
+}
+
+func (c *ClusterRemote) CheckRequiredFlags() error {
+	return c.parent.CheckRequiredFlags()
+}
+
+// Flags keys, defaults and value getters
+func (c *ClusterRemote) KeyClusterRemoteHosts() string {
+	return "hosts"
+}
+
+func (c *ClusterRemote) DefaultClusterRemoteHosts() []string {
+	return []string{}
+}
+
+func (c *ClusterRemote) GetClusterRemoteHosts() []string {
+	return config.ViperGetStringSlice(c.cmd, c.KeyClusterRemoteHosts())
 }

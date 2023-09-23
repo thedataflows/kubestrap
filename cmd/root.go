@@ -18,10 +18,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const keyRootProjectRoot = "project-root"
+type Root struct {
+	cmd *cobra.Command
+}
 
 var (
-	projectRootDir string
 	// rootCmd represents the base command when called without any subcommands
 	rootCmd = &cobra.Command{
 		Use:   "kubestrap",
@@ -36,6 +37,8 @@ var (
 			_ = cmd.Help()
 		},
 	}
+
+	root = NewRoot()
 
 	configOpts, configOptsErr = config.NewOptions(
 		config.WithEnvPrefix(constants.ViperEnvPrefix),
@@ -58,10 +61,9 @@ func init() {
 
 	rootCmd.SilenceErrors = true
 
-	configOpts.Flags.StringVar(
-		&projectRootDir,
-		keyRootProjectRoot,
-		file.WorkingDirectory(),
+	configOpts.Flags.String(
+		root.KeyProjectRoot(),
+		root.DefaultProjectRoot(),
 		"Project root directory",
 	)
 
@@ -72,6 +74,8 @@ func init() {
 	if err := configOpts.InitConfig(); err != nil {
 		panic(err)
 	}
+
+	root.SetCmd(rootCmd)
 
 	stat, err := os.Stdin.Stat()
 	mode := stat.Mode() & os.ModeNamedPipe
@@ -88,4 +92,25 @@ func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(log.ErrWithTrace(err))
 	}
+}
+
+func NewRoot() *Root {
+	return &Root{}
+}
+
+func (r *Root) SetCmd(cmd *cobra.Command) {
+	r.cmd = cmd
+}
+
+// Flags keys, defaults and value getters
+func (r *Root) KeyProjectRoot() string {
+	return "project-root"
+}
+
+func (r *Root) DefaultProjectRoot() string {
+	return file.WorkingDirectory()
+}
+
+func (r *Root) GetProjectRoot() string {
+	return config.ViperGetString(r.cmd, r.KeyProjectRoot())
 }
