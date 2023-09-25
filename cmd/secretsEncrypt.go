@@ -4,12 +4,16 @@ Copyright © 2023 Dataflows
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"runtime"
 
 	"github.com/spf13/cobra"
 	"github.com/thedataflows/go-commons/pkg/config"
 	"github.com/thedataflows/go-commons/pkg/defaults"
+	"github.com/thedataflows/go-commons/pkg/file"
 	"github.com/thedataflows/go-commons/pkg/log"
+	"github.com/thedataflows/go-commons/pkg/search"
 )
 
 type SecretsEncrypt struct {
@@ -21,7 +25,7 @@ var (
 	// secretsEncryptCmd represents the secrets command
 	secretsEncryptCmd = &cobra.Command{
 		Use:     "encrypt",
-		Short:   "Encrypt secrets.",
+		Short:   "Encrypt secrets that are relative to the current project root directory",
 		Long:    ``,
 		Aliases: []string{"e"},
 		RunE:    RunSecretsEncryptCommand,
@@ -71,14 +75,42 @@ func RunSecretsEncryptCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, arg := range args {
-		newArgs := []string{"sops", "--config", secretsEncrypt.GetSopsConfig(), "--encrypt", secretsEncrypt.GetInplace(), arg}
-		log.Info("Generating source files encryption keys")
-		if err := RunRawCommand(rawCmd, newArgs); err != nil {
-			log.Warnf("error running: %s", err)
+		for _, result := range findFiles(arg).Results {
+			if result.Err != nil {
+				log.Warnf("error finding files: %s", result.Err)
+				continue
+			}
+			if file.IsDirectory(result.FilePath) {
+				continue
+			}
+			log.Infof("Encrypting: %s", result.FilePath)
+			newArgs := []string{"sops", "--config", secretsEncrypt.GetSopsConfig(), "--encrypt", secretsEncrypt.GetInplace(), result.FilePath}
+			if err := RunRawCommand(rawCmd, newArgs); err != nil {
+				log.Warnf("error running: %s", err)
+				continue
+			}
 		}
 	}
 
 	return nil
+}
+
+func findFiles(pattern string) *search.Results {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	finder := &search.JustLister{
+		OpenFile: false,
+	}
+
+	// This wil not filter anything, will return all files and all directories
+	fileFilter := &search.FileFilterByPattern{
+		PlainPattern: "",
+		RegexPattern: pattern,
+		ApplyToDirs:  false,
+	}
+
+	return search.FindFile(ctx, secretsEncrypt.GetProjectRoot(), fileFilter, finder, runtime.NumCPU())
 }
 
 func NewSecretsEncrypt(parent *Secrets) *SecretsEncrypt {
@@ -97,7 +129,7 @@ func (s *SecretsEncrypt) CheckRequiredFlags() error {
 
 // Flags keys, defaults and value getters
 func (s *SecretsEncrypt) DefaultSecretsEncryptFilePattern() string {
-	return "secrets.*.yaml"
+	return `secret.*\.yaml`
 }
 func (s *SecretsEncrypt) KeyInplace() string {
 	return "in-place"
@@ -142,9 +174,14 @@ func (s *SecretsEncrypt) GetKubeClusterDir() string {
 	secretsEncryptKubeClusterDir := config.ViperGetString(s.cmd, s.KeyKubeClusterDir())
 	if secretsEncryptKubeClusterDir == s.DefaultKubeClusterDir() {
 		secretsEncryptKubeClusterDir = fmt.Sprintf(
-			"kubernetes/cluster-%s",
+			"%s/kubernetes/cluster-%s",
+			s.GetProjectRoot(),
 			s.parent.GetSecretsContext(),
 		)
 	}
 	return secretsEncryptKubeClusterDir
+}
+
+func (r *SecretsEncrypt) GetProjectRoot() string {
+	return r.parent.GetProjectRoot()
 }
