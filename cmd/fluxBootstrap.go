@@ -180,7 +180,8 @@ func (f *FluxBootstrap) GetFluxBootstrapPath() string {
 	fluxBootstrapPath := config.ViperGetString(f.cmd, f.KeyFluxBootstrapPath())
 	if fluxBootstrapPath == f.DefaultFluxBootstrapPath() {
 		fluxBootstrapPath = fmt.Sprintf(
-			"kubernetes/cluster-%s/%s",
+			"%s/kubernetes/cluster-%s/%s",
+			f.parent.GetProjectRoot(),
 			f.parent.GetFluxContext(),
 			f.parent.GetFluxNamespace(),
 		)

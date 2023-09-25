@@ -116,7 +116,15 @@ func (s *Secrets) DefaultClusterBootstrapPath() string {
 func (s *Secrets) GetClusterBootstrapPath() string {
 	clusterPath := config.ViperGetString(s.cmd, s.KeyClusterBootstrapPath())
 	if clusterPath == s.DefaultClusterBootstrapPath() {
-		clusterPath = fmt.Sprintf("bootstrap/cluster-%s", s.GetSecretsContext())
+		clusterPath = fmt.Sprintf(
+			"%s/bootstrap/cluster-%s",
+			s.GetProjectRoot(),
+			s.GetSecretsContext(),
+		)
 	}
 	return clusterPath
+}
+
+func (s *Secrets) GetProjectRoot() string {
+	return s.parent.GetProjectRoot()
 }

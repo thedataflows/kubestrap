@@ -109,7 +109,11 @@ func (c *Cluster) DefaultClusterBootstrapPath() string {
 func (c *Cluster) GetClusterBootstrapPath() string {
 	clusterBootstrapPath := config.ViperGetString(c.cmd, c.KeyClusterBootstrapPath())
 	if clusterBootstrapPath == c.DefaultClusterBootstrapPath() {
-		clusterBootstrapPath = fmt.Sprintf("bootstrap/cluster-%s", c.GetClusterContext())
+		clusterBootstrapPath = fmt.Sprintf(
+			"%s/bootstrap/cluster-%s",
+			c.parent.GetProjectRoot(),
+			c.GetClusterContext(),
+		)
 	}
 	return clusterBootstrapPath
 }

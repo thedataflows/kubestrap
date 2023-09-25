@@ -363,7 +363,7 @@ func (s *SecretsBootstrap) DefaultPrivateKeyPath() string {
 func (s *SecretsBootstrap) GetPrivateKeyPath() string {
 	privateKeyPath := config.ViperGetString(s.cmd, s.KeyPrivateKeyPath())
 	if privateKeyPath == s.DefaultPrivateKeyPath() {
-		privateKeyPath = s.parent.GetSecretsDir() + "/" + s.parent.GetSecretsContext() + ".age"
+		privateKeyPath = s.parent.GetProjectRoot() + "/" + s.parent.GetSecretsDir() + "/" + s.parent.GetSecretsContext() + ".age"
 	}
 	return privateKeyPath
 }

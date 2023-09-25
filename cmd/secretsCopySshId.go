@@ -347,7 +347,7 @@ func (s *SecretsCopySshId) DefaultPrivateKeyFile() string {
 func (s *SecretsCopySshId) GetPrivateKeyFile() string {
 	privateKeyFile := config.ViperGetString(s.cmd, s.KeyPrivateKeyFile())
 	if privateKeyFile == s.DefaultPrivateKeyFile() {
-		privateKeyFile = s.parent.GetClusterBootstrapPath() + "/" + constants.DefaultClusterSshKeyFileName
+		privateKeyFile = s.parent.GetProjectRoot() + "/" + s.parent.GetClusterBootstrapPath() + "/" + constants.DefaultClusterSshKeyFileName
 	}
 	return privateKeyFile
 }

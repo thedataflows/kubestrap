@@ -109,3 +109,7 @@ func (f *Flux) DefaultFluxNamespace() string {
 func (f *Flux) GetFluxNamespace() string {
 	return config.ViperGetString(f.cmd, f.KeyFluxNamespace())
 }
+
+func (f *Flux) GetProjectRoot() string {
+	return f.parent.GetProjectRoot()
+}
