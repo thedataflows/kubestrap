@@ -133,5 +133,5 @@ func (r *Raw) GetRawOutput() bool {
 }
 
 func (r *Raw) KeyRawUtilities() string {
-	return "raw-utilities"
+	return "utilities"
 }
