@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
+	"regexp"
 	"runtime"
+	"strings"
 	"sync"
+
+	"github.com/thedataflows/go-commons/pkg/stringutil"
 )
 
 // Result represents a single search result.
@@ -68,8 +71,8 @@ func (f *JustLister) ProcessFile(ctx context.Context, filePath string, resultsCh
 	}
 }
 
-// Find walks through the directory, calling ProcessFile for each file.
-func Find(ctx context.Context, startDir string, finder Finder, maxWorkers int) *Results {
+// FindFile walks through the directory, calling ProcessFile for each file.
+func FindFile(ctx context.Context, startDir string, fileFilter FileFilter, finder Finder, maxWorkers int) *Results {
 	results := Results{}
 	resultsChan := make(chan *Results, maxWorkers)
 	var wg sync.WaitGroup
@@ -84,6 +87,9 @@ func Find(ctx context.Context, startDir string, finder Finder, maxWorkers int) *
 	// Define a walkFn function that will be called recursively to process each directory.
 	var walkFn func(string) error
 	walkFn = func(path string) error {
+		if fileFilter != nil && !fileFilter.Filter(path, true) {
+			return nil
+		}
 		dirEntries, err := os.ReadDir(path)
 		if err != nil {
 			resultsChan <- &Results{
@@ -96,30 +102,33 @@ func Find(ctx context.Context, startDir string, finder Finder, maxWorkers int) *
 
 		for _, dirEntry := range dirEntries {
 			if dirEntry.IsDir() {
-				subDir := filepath.Join(path, dirEntry.Name())
+				subDir := stringutil.ConcatStrings(path, "/", dirEntry.Name())
 				if err := walkFn(subDir); err != nil {
 					return err
 				}
-			} else {
-				filePath := filepath.Join(path, dirEntry.Name())
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case sem <- struct{}{}:
-					// Wait for an available worker from the pool.
-					<-workerPool
-					wg.Add(1)
-					// Call ProcessFile in a separate goroutine for each file.
-					go func() {
-						defer func() {
-							wg.Done()
-							// Release the worker back to the pool.
-							workerPool <- struct{}{}
-						}()
-						finder.ProcessFile(ctx, filePath, resultsChan)
-						<-sem
+				continue
+			}
+			filePath := stringutil.ConcatStrings(path, "/", dirEntry.Name())
+			if fileFilter != nil && !fileFilter.Filter(filePath, false) {
+				continue
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case sem <- struct{}{}:
+				// Wait for an available worker from the pool.
+				<-workerPool
+				wg.Add(1)
+				// Call ProcessFile in a separate goroutine for each file.
+				go func() {
+					defer func() {
+						wg.Done()
+						// Release the worker back to the pool.
+						workerPool <- struct{}{}
 					}()
-				}
+					finder.ProcessFile(ctx, filePath, resultsChan)
+					<-sem
+				}()
 			}
 		}
 
@@ -149,12 +158,12 @@ func Find(ctx context.Context, startDir string, finder Finder, maxWorkers int) *
 
 // RunFind is a sample main function that runs the find command.
 // If maxWorkers is less than 1, it will use twice the number of CPUs.
-func RunFind(pattern *string, startDir *string, maxWorkers *int) []error {
-	if *maxWorkers < 1 {
-		*maxWorkers = runtime.NumCPU() * 2
+func RunFindFile(pattern *string, startDir *string, maxWorkers int) []error {
+	if maxWorkers < 1 {
+		maxWorkers = runtime.NumCPU() * 2
 	}
 
-	fmt.Fprintf(os.Stderr, "Using %v workers\n", *maxWorkers)
+	fmt.Fprintf(os.Stderr, "Using %v workers\n", maxWorkers)
 
 	if *pattern == "" {
 		return []error{fmt.Errorf("pattern is required")}
@@ -173,9 +182,16 @@ func RunFind(pattern *string, startDir *string, maxWorkers *int) []error {
 	// 	OpenFile: false,
 	// }
 
+	// This wil not filter anything, will return all files and all directories
+	fileFilter := &FileFilterByPattern{
+		PlainPattern: "",
+		RegexPattern: "",
+		ApplyToDirs:  false,
+	}
+
 	errors := []error{}
 
-	results := Find(ctx, *startDir, finder, *maxWorkers)
+	results := FindFile(ctx, *startDir, fileFilter, finder, maxWorkers)
 
 	for _, result := range results.Results {
 		if result.Err != nil {
@@ -189,4 +205,32 @@ func RunFind(pattern *string, startDir *string, maxWorkers *int) []error {
 		}
 	}
 	return errors
+}
+
+// Files Filtering
+type FileFilter interface {
+	Filter(path string, isDir bool) bool
+}
+
+type FileFilterByPattern struct {
+	// If not empty, try to match the pattern in the file path first
+	PlainPattern string
+	// If not empty, try to match the pattern in the file path second
+	RegexPattern string
+	// apply to directories as well?
+	ApplyToDirs bool
+}
+
+func (ffbp *FileFilterByPattern) Filter(path string, isDir bool) bool {
+	if !ffbp.ApplyToDirs && isDir {
+		return true
+	}
+	if ffbp.PlainPattern != "" {
+		return strings.Contains(path, ffbp.PlainPattern)
+	}
+	if ffbp.RegexPattern != "" {
+		r := regexp.MustCompile(ffbp.RegexPattern)
+		return r.Match([]byte(path))
+	}
+	return true
 }
