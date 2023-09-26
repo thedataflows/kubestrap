@@ -120,7 +120,7 @@ func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			return fmt.Errorf("failed to decrypt private key:\n%s", strings.Join(status.Stderr, "\n"))
 		}
-		err = os.Setenv("SOPS_AGE_KEY", strings.Join(status.Stdout, ""))
+		err = os.Setenv("SOPS_AGE_KEY", strings.Join(status.Stdout, "\n"))
 		if err != nil {
 			return err
 		}
@@ -129,7 +129,7 @@ func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 	for _, arg := range args {
 		for _, result := range findFiles(arg).Results {
 			if result.Err != nil {
-				log.Warnf("error finding files: %s", result.Err)
+				log.Errorf("error finding files: %s", result.Err)
 				continue
 			}
 			if file.IsDirectory(result.FilePath) {
@@ -141,9 +141,17 @@ func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 				newArgs = append(newArgs, "--config", secretsEncryptDecrypt.GetSopsConfig())
 			}
 			newArgs = append(newArgs, secretsEncryptDecrypt.GetInplace(), result.FilePath)
-			if err := RunRawCommand(rawCmd, newArgs); err != nil {
-				log.Warnf("error running: %s", err)
+			status, err := LoadRawCommandsAndRunOne(rawCmd, newArgs, true)
+			if err != nil {
+				log.Errorf("error running '%s': %v", strings.Join(newArgs, " "), err)
 				continue
+			}
+			if status.Exit != 0 {
+				log.Errorf("command '%s' failed with exit code %d:\n%s", strings.Join(newArgs, " "), status.Exit, strings.Join(status.Stderr, "\n"))
+				continue
+			}
+			if len(status.Stdout) > 0 {
+				fmt.Println(strings.Join(status.Stdout, "\n"))
 			}
 		}
 	}
