@@ -39,42 +39,34 @@ type RawCommand struct {
 }
 
 // ExecuteCommand attempts to execute an instance of a subcommand
-func (command *RawCommand) ExecuteCommand(timeout time.Duration, rawOutput bool, buffered bool) (int, error) {
+func (command *RawCommand) ExecuteCommand(timeout time.Duration, buffered bool) (*cmd.Status, error) {
 	// Set PATH and get executable path
 	if _, err := command.ExeDir(); err != nil {
-		return -1, err
+		return nil, err
 	}
 
 	if err := command.CheckCommand(timeout); err != nil {
-		return -2, err
+		return nil, err
 	}
 
 	exePath, err := exec.LookPath(command.Command[0])
 	if err != nil {
-		return -3, err
+		return nil, err
 	}
 
-	status, err := RunProcess(exePath, command.Command[1:], timeout, rawOutput, buffered)
+	status, err := RunProcess(exePath, command.Command[1:], timeout, buffered)
 	if err != nil {
-		return -4, err
+		return nil, err
 	}
-	if buffered {
-		for _, line := range status.Stdout {
-			if rawOutput {
-				fmt.Fprintln(os.Stdout, line)
-			} else {
-				log.Infof("[%s] %v\n", command.Name, line)
-			}
-		}
-		for _, line := range status.Stderr {
-			if rawOutput {
-				fmt.Fprintln(os.Stderr, line)
-			} else {
-				log.Errorf("[%s] %v\n", command.Name, line)
-			}
-		}
-	}
-	return status.Exit, nil
+	// if !buffered {
+	// 	for _, line := range status.Stdout {
+	// 		log.Infof("[%s] %v", command.Name, line)
+	// 	}
+	// 	for _, line := range status.Stderr {
+	// 		log.Errorf("[%s] %v", command.Name, line)
+	// 	}
+	// }
+	return status, nil
 }
 
 // CheckCommand checks if the command exists in the PATH first, and if is at the specified version. Will attempt to download or get from filesystem and extract
@@ -94,7 +86,7 @@ func (command *RawCommand) CheckCommand(timeout time.Duration) error {
 	if command.VersionCommand == "" {
 		command.VersionCommand = "version"
 	}
-	status, errRun = RunProcess(commandExePath, regexp.MustCompile(`\s+`).Split(command.VersionCommand, -1), timeout, true, true)
+	status, errRun = RunProcess(commandExePath, regexp.MustCompile(`\s+`).Split(command.VersionCommand, -1), timeout, true)
 	switch {
 	case errRun != nil:
 		return fmt.Errorf("[%s] version check failed:\n%+v", command.Name, errRun)
@@ -111,8 +103,7 @@ func (command *RawCommand) CheckCommand(timeout time.Duration) error {
 	}
 
 	for i, p := range command.Additional {
-		_, errLookup := exec.LookPath(p)
-		if errLookup != nil {
+		if _, err := exec.LookPath(p); err != nil {
 			break
 		}
 		if i == len(command.Additional)-1 {

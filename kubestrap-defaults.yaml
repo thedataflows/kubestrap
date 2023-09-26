@@ -1,7 +1,6 @@
 log-level: info
 raw:
   # timeout: 1m0s
-  raw-output: true
   utilities:
     - name: yq
       release: 4.35.1

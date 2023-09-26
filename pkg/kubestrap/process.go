@@ -17,7 +17,7 @@ import (
 )
 
 // RunProcess starts a process and waits for it to complete but not after specified timeout
-func RunProcess(exePath string, args []string, timeout time.Duration, rawOutput bool, buffered bool) (*cmd.Status, error) {
+func RunProcess(exePath string, args []string, timeout time.Duration, buffered bool) (*cmd.Status, error) {
 	// eliminate empty args
 	var cleanArgs []string
 	for _, a := range args {
@@ -57,20 +57,16 @@ func RunProcess(exePath string, args []string, timeout time.Duration, rawOutput 
 					currentCmd.Stdout = nil
 					continue
 				}
-				if rawOutput {
-					fmt.Fprintln(os.Stdout, line)
-				} else {
-					log.Infof("[%s] %v\n", exeName, line)
+				if !buffered {
+					log.Infof("[%s] %v", exeName, line)
 				}
 			case line, open := <-currentCmd.Stderr:
 				if !open {
 					currentCmd.Stderr = nil
 					continue
 				}
-				if rawOutput {
-					fmt.Fprintln(os.Stderr, line)
-				} else {
-					log.Errorf("[%s] %v\n", exeName, line)
+				if !buffered {
+					log.Errorf("[%s] %v", exeName, line)
 				}
 			}
 		}
@@ -80,7 +76,7 @@ func RunProcess(exePath string, args []string, timeout time.Duration, rawOutput 
 	go func() {
 		<-time.After(timeout)
 		err := currentCmd.Stop()
-		log.Errorf("[%s] timeout running subcommand after %v. Error: %v", exeName, timeout, err)
+		log.Errorf("[%s] timeout running command after %v. Error: %v", exeName, timeout, err)
 	}()
 
 	// Run and wait for Cmd to return

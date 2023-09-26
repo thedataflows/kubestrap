@@ -14,6 +14,8 @@ import (
 	"github.com/thedataflows/go-commons/pkg/log"
 	"github.com/thedataflows/kubestrap/pkg/kubestrap"
 	"golang.org/x/exp/slices"
+
+	go_cmd "github.com/go-cmd/cmd"
 )
 
 type Raw struct {
@@ -44,12 +46,6 @@ func init() {
 		raw.DefaultTimeout(),
 		"Timeout for executing raw command. After time elapses, the command will be terminated",
 	)
-	rawCmd.Flags().BoolP(
-		raw.KeyRawOutput(),
-		"r",
-		raw.DefaultRawOutput(),
-		"Display raw output, outside of the logger",
-	)
 
 	// Bind flags
 	config.ViperBindPFlagSet(rawCmd, nil)
@@ -59,6 +55,11 @@ func init() {
 
 // RunRawCommand unmarshal commands and executes with provided arguments
 func RunRawCommand(cmd *cobra.Command, args []string) error {
+	_, err := LoadRawCommandsAndRunOne(cmd, args, false)
+	return err
+}
+
+func LoadRawCommandsAndRunOne(cmd *cobra.Command, args []string, buffered bool) (*go_cmd.Status, error) {
 	var commands []kubestrap.RawCommand
 	if err := viper.UnmarshalKey(
 		config.PrefixKey(cmd, raw.KeyRawUtilities()),
@@ -69,7 +70,7 @@ func RunRawCommand(cmd *cobra.Command, args []string) error {
 			// config.ErrorUnset = true
 		},
 	); err != nil {
-		return err
+		return nil, err
 	}
 	if len(args) == 0 {
 		_ = cmd.Help()
@@ -77,23 +78,23 @@ func RunRawCommand(cmd *cobra.Command, args []string) error {
 		for _, c := range commands {
 			fmt.Printf("  - %s %s\n", c.Name, c.Release)
 		}
-		return nil
+		return nil, nil
 	}
 	for _, c := range commands {
 		if c.Name == args[0] || slices.Contains(c.Additional, args[0]) {
 			timeout := raw.GetTimeout()
 			log.Debugf("execution timeout: %s", timeout)
 			c.Command = args
-			retCode, err := c.ExecuteCommand(timeout, raw.GetRawOutput(), false)
-			if retCode != 0 {
-				log.Errorf("command '%s' failed with code %d", args[0], retCode)
+			status, err := c.ExecuteCommand(timeout, buffered)
+			if status.Exit != 0 {
+				log.Errorf("command '%s' failed with code %d", args[0], status.Exit)
 			}
 			// Config allows for duplicates, but here we stop at the first match
-			return err
+			return status, err
 		}
 	}
 	// If we get here, the command is not in the config, do not allow that
-	return fmt.Errorf("command '%s' is not supported, perhaps add it to the config?", args[0])
+	return nil, fmt.Errorf("command '%s' is not supported, perhaps add it to the config?", args[0])
 }
 
 func NewRaw(parent *Root) *Raw {
@@ -118,18 +119,6 @@ func (r *Raw) DefaultTimeout() time.Duration {
 
 func (r *Raw) GetTimeout() time.Duration {
 	return config.ViperGetDuration(r.cmd, r.KeyTimeout())
-}
-
-func (r *Raw) KeyRawOutput() string {
-	return "raw-output"
-}
-
-func (r *Raw) DefaultRawOutput() bool {
-	return true
-}
-
-func (r *Raw) GetRawOutput() bool {
-	return config.ViperGetBool(r.cmd, r.KeyRawOutput())
 }
 
 func (r *Raw) KeyRawUtilities() string {
