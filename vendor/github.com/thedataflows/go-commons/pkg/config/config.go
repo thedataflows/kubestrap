@@ -10,6 +10,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/thedataflows/go-commons/pkg/defaults"
 	"github.com/thedataflows/go-commons/pkg/file"
+	"github.com/thedataflows/go-commons/pkg/lang"
 	"github.com/thedataflows/go-commons/pkg/log"
 	"github.com/thedataflows/go-commons/pkg/process"
 	"github.com/thedataflows/go-commons/pkg/stringutil"
@@ -52,6 +53,7 @@ func WithConfigName(configName string) Option {
 }
 
 func WithUserConfigPaths(userConfigPaths []string) Option {
+	userConfigPaths = lang.UniqueSliceElements(userConfigPaths)
 	return func(o *Options) {
 		o.UserConfigPaths = userConfigPaths
 	}
