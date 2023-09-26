@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 
 	"github.com/thedataflows/go-commons/pkg/config"
 	"github.com/thedataflows/go-commons/pkg/file"
@@ -45,8 +44,8 @@ var (
 		config.WithConfigName(constants.DefaultConfigName),
 		config.WithUserConfigPaths(
 			[]string{
-				filepath.Join(process.CurrentProcessDirectory()),
-				filepath.Join(file.WorkingDirectory()),
+				process.CurrentProcessDirectory(),
+				file.WorkingDirectory(),
 			},
 		),
 	)

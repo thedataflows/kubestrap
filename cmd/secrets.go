@@ -102,7 +102,11 @@ func (s *Secrets) DefaultSecretsDir() string {
 
 // GetSecretsDir returns SecretsDir
 func (s *Secrets) GetSecretsDir() string {
-	return config.ViperGetString(s.cmd, s.KeySecretsDir())
+	return fmt.Sprintf(
+		"%s/%s",
+		s.GetProjectRoot(),
+		config.ViperGetString(s.cmd, s.KeySecretsDir()),
+	)
 }
 
 func (s *Secrets) KeyClusterBootstrapPath() string {

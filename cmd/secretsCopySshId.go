@@ -298,7 +298,7 @@ func runSshCopyIdScript(host, clusterBootstrapPath string) error {
 		"-c",
 		"ssh-copy-id -i " + clusterBootstrapPath + "/" + constants.DefaultClusterSshKeyFileName + " root@" + host,
 	}
-	status, err := kubestrap.RunProcess(exeName, sshCopyIdArgs, 1*time.Minute, true, false)
+	status, err := kubestrap.RunProcess(exeName, sshCopyIdArgs, 1*time.Minute, false)
 	if err != nil {
 		return fmt.Errorf("error running '%s %s: %v'", exeName, strings.Join(sshCopyIdArgs, " "), err)
 	}
@@ -347,7 +347,7 @@ func (s *SecretsCopySshId) DefaultPrivateKeyFile() string {
 func (s *SecretsCopySshId) GetPrivateKeyFile() string {
 	privateKeyFile := config.ViperGetString(s.cmd, s.KeyPrivateKeyFile())
 	if privateKeyFile == s.DefaultPrivateKeyFile() {
-		privateKeyFile = s.parent.GetProjectRoot() + "/" + s.parent.GetClusterBootstrapPath() + "/" + constants.DefaultClusterSshKeyFileName
+		privateKeyFile = s.parent.GetClusterBootstrapPath() + "/" + constants.DefaultClusterSshKeyFileName
 	}
 	return privateKeyFile
 }
