@@ -101,7 +101,7 @@ func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 		args = []string{secretsEncryptDecrypt.DefaultSecretsEncryptDecryptFilePattern()}
 	}
 
-	if cmd.Use == "decrypt" {
+	if cmd.Use == "decrypt" && os.Getenv("SOPS_AGE_KEY") == "" {
 		log.Infof("Loading private key: %s", secretsEncryptDecrypt.GetPrivateKeyPath())
 		// set SOPS_AGE_KEY environment variable
 		status, err := LoadRawCommandsAndRunOne(
