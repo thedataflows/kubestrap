@@ -144,7 +144,7 @@ func (command *RawCommand) EnsureExe() ([]string, error) {
 	}
 
 	if parsedUrl.Path == "" && command.CachePath == "" {
-		return nil, fmt.Errorf("at least one of 'url.%s' or 'cache-path' must be specified", runtime.GOOS)
+		return nil, fmt.Errorf("at least one of 'url.%s' or 'cache-path' must be present in the raw command specs", runtime.GOOS)
 	}
 
 	download := false
