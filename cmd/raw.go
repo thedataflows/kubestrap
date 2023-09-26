@@ -86,8 +86,8 @@ func LoadRawCommandsAndRunOne(cmd *cobra.Command, args []string, buffered bool) 
 			log.Debugf("execution timeout: %s", timeout)
 			c.Command = args
 			status, err := c.ExecuteCommand(timeout, buffered)
-			if status.Exit != 0 {
-				log.Errorf("command '%s' failed with code %d", args[0], status.Exit)
+			if err != nil {
+				return nil, fmt.Errorf("cannot execute '%s': %v", args[0], err)
 			}
 			// Config allows for duplicates, but here we stop at the first match
 			return status, err
