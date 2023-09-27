@@ -76,6 +76,9 @@ func RunProcess(exePath string, args []string, timeout time.Duration, buffered b
 	go func() {
 		<-time.After(timeout)
 		err := currentCmd.Stop()
+		if err == nil {
+			return
+		}
 		log.Errorf("[%s] timeout running command after %v. Error: %v", exeName, timeout, err)
 	}()
 
