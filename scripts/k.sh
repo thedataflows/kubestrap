@@ -33,6 +33,14 @@ if [[ ! $(type -p $PACKAGE_BIN) || "$($PACKAGE_BIN version)" != "$PACKAGE_VERSIO
     fi
 fi
 
+CONFIG_COMMAND=
+if [[ -z "$CLUSTER_CONFIG" && -n "$KUBERNETES_CLUSTER_CONTEXT" ]]; then
+    CLUSTER_CONFIG="$SCRIPT_DIR/kubestrap-$KUBERNETES_CLUSTER_CONTEXT.yaml"
+    if [[ -f "$CLUSTER_CONFIG" ]]; then
+      CONFIG_COMMAND="--config $CLUSTER_CONFIG"
+    fi
+fi
+
 set -x
-$PACKAGE_BIN --config $SCRIPT_DIR/kubestrap-defaults.yaml "$@"
+$PACKAGE_BIN --config $SCRIPT_DIR/kubestrap-defaults.yaml $CONFIG_COMMAND "$@"
 { set +x; } 2>/dev/null
