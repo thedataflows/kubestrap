@@ -93,11 +93,14 @@ func RunRawCommand(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return fmt.Errorf("error running '%s': %v", c.Command, err)
 			}
-			if status.Exit != 0 {
-				return fmt.Errorf("command '%s' failed with exit code %d:\n%s", strings.Join(c.Command, " "), status.Exit, strings.Join(status.Stderr, "\n"))
-			}
 			if len(status.Stdout) > 0 {
 				fmt.Println(strings.Join(status.Stdout, "\n"))
+			}
+			if status.Exit != 0 {
+				if len(status.Stderr) > 0 {
+					return fmt.Errorf("command '%s' failed with exit code %d:\n%s", strings.Join(c.Command, " "), status.Exit, strings.Join(status.Stderr, "\n"))
+				}
+				return fmt.Errorf("command '%s' failed with exit code %d", strings.Join(c.Command, " "), status.Exit)
 			}
 			// Config allows for duplicates, but here we stop at the first match
 			return nil
@@ -116,9 +119,7 @@ func RunRawCommandCaptureStdout(cmd *cobra.Command, args []string) (string, erro
 
 	// Run the command
 	config.ViperSet(cmd, raw.KeyBufferedOutput(), "true")
-	if err = RunRawCommand(cmd, args); err != nil {
-		return "", err
-	}
+	rawErr := RunRawCommand(cmd, args)
 
 	// back to normal state
 	out, err := p.CloseStdout()
@@ -126,7 +127,7 @@ func RunRawCommandCaptureStdout(cmd *cobra.Command, args []string) (string, erro
 		return "", err
 	}
 
-	return out, nil
+	return out, rawErr
 }
 
 func NewRaw(parent *Root) *Raw {
