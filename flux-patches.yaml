@@ -1,22 +1,24 @@
-- target:
-    group: kustomize.toolkit.fluxcd.io
-    kind: Kustomization
-    name: flux-system
-  patch: |-
-    - op: replace
-      path: /spec/interval
-      value: 10m0s
-    - op: replace
-      path: /spec/decryption
-      value:
-        provider: sops
-        secretRef:
-          name: sops-age
-- target:
-    group: apps
-    kind: Deployment
-    name: kustomize-controller
-  patch: |-
-    - op: replace
-      path: /spec/template/spec/containers/0/resources/limits/cpu
-      value: 2
+kind: Kustomization
+patches:
+  - target:
+      group: kustomize.toolkit.fluxcd.io
+      kind: Kustomization
+      name: flux-system
+    patch: |-
+      - op: replace
+        path: /spec/interval
+        value: 10m0s
+      - op: replace
+        path: /spec/decryption
+        value:
+          provider: sops
+          secretRef:
+            name: sops-age
+  - target:
+      group: apps
+      kind: Deployment
+      name: kustomize-controller
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 2

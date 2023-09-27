@@ -5,16 +5,14 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
-	"dario.cat/mergo"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/spf13/cobra"
 	"github.com/thedataflows/go-commons/pkg/config"
 	"github.com/thedataflows/go-commons/pkg/log"
-	"sigs.k8s.io/kustomize/api/types"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
+	"sigs.k8s.io/kustomize/kyaml/yaml/merge2"
 )
 
 type FluxBootstrap struct {
@@ -83,43 +81,33 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	projectRootDir := root.GetProjectRoot()
 	// Patch flux kustomization
-	kustomizationFilePath := fmt.Sprintf(
-		"%s/%s/kustomization.yaml",
-		projectRootDir,
-		fluxBootstrap.GetFluxBootstrapPath(),
-	)
-	kData, err := os.ReadFile(kustomizationFilePath)
+	kustomizationFilePath := fluxBootstrap.GetFluxBootstrapPath() + "/kustomization.yaml"
+
+	kData, err := yaml.ReadFile(kustomizationFilePath)
+	if err != nil {
+		return err
+	}
+	pData, err := yaml.ReadFile(fluxBootstrap.GetFluxBootstrapPatchesFile())
 	if err != nil {
 		return err
 	}
 	log.Infof("Patching %s", kustomizationFilePath)
-	var k types.Kustomization
-	if err = yaml.Unmarshal(kData, &k); err != nil {
-		return err
-	}
-	pData, err := os.ReadFile(fluxBootstrap.GetFluxBootstrapPatchesFile())
+	k, err := merge2.Merge(
+		pData,
+		kData,
+		yaml.MergeOptions{
+			ListIncreaseDirection: yaml.MergeOptionsListAppend,
+		})
 	if err != nil {
 		return err
 	}
-	patch := []types.Patch{}
-	if err = yaml.Unmarshal(pData, &patch); err != nil {
-		return err
-	}
-	if err = mergo.Merge(&k.Patches, patch, mergo.WithOverride); err != nil {
-		return err
-	}
-	kOutData, err := yaml.MarshalWithOptions(k, &yaml.EncoderOptions{SeqIndent: yaml.WideSequenceStyle})
-	if err != nil {
-		return err
-	}
-	if err = os.WriteFile(kustomizationFilePath, kOutData, 0600); err != nil {
+	if err = yaml.WriteFile(k, kustomizationFilePath); err != nil {
 		return err
 	}
 
 	// Git commit and push the patched kustomization
-	r, err := git.PlainOpen(projectRootDir)
+	r, err := git.PlainOpen(root.GetProjectRoot())
 	if err != nil {
 		return fmt.Errorf("error opening git repository: %v", err)
 	}
