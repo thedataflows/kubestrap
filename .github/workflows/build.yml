@@ -22,7 +22,7 @@ jobs:
           go install -v ./...
       - name: Pre Commit
         run: make pre-commit
-      - name: Run GoReleaser
+      - name: Run Build
         uses: goreleaser/goreleaser-action@v4
         with:
           version: latest
