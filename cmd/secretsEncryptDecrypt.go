@@ -78,6 +78,7 @@ func init() {
 }
 
 func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
+	cmd.SilenceUsage = true
 	secretsEncryptDecrypt.SetCmd(cmd)
 	if err := secretsEncryptDecrypt.CheckRequiredFlags(); err != nil {
 		return err
@@ -89,25 +90,33 @@ func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 
 	if cmd.Use == "decrypt" && os.Getenv("SOPS_AGE_KEY") == "" {
 		log.Infof("Loading private key: %s", secretsEncryptDecrypt.GetPrivateKeyPath())
-		// set SOPS_AGE_KEY environment variable
-		status, err := LoadRawCommandsAndRunOne(
+		// Capture stdout
+		p, err := file.NewPipeStdout()
+		if err != nil {
+			return err
+		}
+		if err = RunRawCommand(
 			rawCmd,
 			[]string{
 				"age",
 				"--decrypt",
 				secretsEncryptDecrypt.GetPrivateKeyPath(),
 			},
-			true,
-		)
+		); err != nil {
+			return err
+		}
+
+		// back to normal state
+		out, err := p.CloseStdout()
 		if err != nil {
 			return err
 		}
-		if status.Exit != 0 {
-			cmd.SilenceUsage = true
-			return fmt.Errorf("failed to decrypt private key:\n%s", strings.Join(status.Stderr, "\n"))
+		if len(out) == 0 {
+			return fmt.Errorf("private key is empty")
 		}
-		err = os.Setenv("SOPS_AGE_KEY", strings.Join(status.Stdout, "\n"))
-		if err != nil {
+
+		// set SOPS_AGE_KEY environment variable
+		if err = os.Setenv("SOPS_AGE_KEY", out); err != nil {
 			return err
 		}
 	}
@@ -127,17 +136,9 @@ func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 				newArgs = append(newArgs, "--config", secretsEncryptDecrypt.parent.GetSopsConfig())
 			}
 			newArgs = append(newArgs, secretsEncryptDecrypt.GetInplace(), result.FilePath)
-			status, err := LoadRawCommandsAndRunOne(rawCmd, newArgs, true)
-			if err != nil {
-				log.Errorf("error running '%s': %v", strings.Join(newArgs, " "), err)
+			if err := RunRawCommand(rawCmd, newArgs); err != nil {
+				log.Error(err)
 				continue
-			}
-			if status.Exit != 0 {
-				log.Errorf("command '%s' failed with exit code %d:\n%s", strings.Join(newArgs, " "), status.Exit, strings.Join(status.Stderr, "\n"))
-				continue
-			}
-			if len(status.Stdout) > 0 {
-				fmt.Println(strings.Join(status.Stdout, "\n"))
 			}
 		}
 	}
