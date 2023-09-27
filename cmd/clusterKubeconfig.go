@@ -70,7 +70,7 @@ func RunClusterKubeconfigCommand(cmd *cobra.Command, args []string) error {
 	)
 	if err != nil {
 		if len(out) == 0 {
-			return fmt.Errorf("%v", err)
+			return err
 		}
 		return fmt.Errorf("%v\n%s", err, out)
 	}

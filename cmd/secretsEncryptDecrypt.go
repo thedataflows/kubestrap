@@ -100,7 +100,10 @@ func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 			},
 		)
 		if err != nil {
-			return err
+			if len(out) == 0 {
+				return err
+			}
+			return fmt.Errorf("%v\n%s", err, out)
 		}
 		if len(out) == 0 {
 			return fmt.Errorf("private key is empty")
