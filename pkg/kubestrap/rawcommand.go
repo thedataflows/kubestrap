@@ -58,14 +58,7 @@ func (command *RawCommand) ExecuteCommand(timeout time.Duration, buffered bool) 
 	if err != nil {
 		return nil, err
 	}
-	// if !buffered {
-	// 	for _, line := range status.Stdout {
-	// 		log.Infof("[%s] %v", command.Name, line)
-	// 	}
-	// 	for _, line := range status.Stderr {
-	// 		log.Errorf("[%s] %v", command.Name, line)
-	// 	}
-	// }
+
 	return status, nil
 }
 

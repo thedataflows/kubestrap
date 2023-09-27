@@ -66,7 +66,7 @@ func RunProcess(exePath string, args []string, timeout time.Duration, buffered b
 					continue
 				}
 				if !buffered {
-					log.Errorf("[%s] %v", exeName, line)
+					log.Warnf("[%s] %v", exeName, line)
 				}
 			}
 		}
