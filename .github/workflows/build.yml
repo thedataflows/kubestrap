@@ -22,5 +22,8 @@ jobs:
           go install -v ./...
       - name: Pre Commit
         run: make pre-commit
-      - name: Build
-        run: make build
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          version: latest
+          args: build --snapshot --clean
