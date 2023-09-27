@@ -75,7 +75,12 @@ func RunClusterCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	clusterBootstrapPath := clusterBootstrap.parent.GetClusterBootstrapPath()
+	clusterBootstrapPath := mycluster.GetClusterBootstrapPath()
+	clusterBootstrapOsTmpPath := clusterBootstrapPath + "/../os/tmp"
+
+	if err := os.MkdirAll(clusterBootstrapOsTmpPath, 0700); err != nil {
+		return err
+	}
 
 	currentDir := file.WorkingDirectory()
 	if err := os.Chdir(clusterBootstrapPath); err != nil {
@@ -83,18 +88,43 @@ func RunClusterCommand(cmd *cobra.Command, args []string) error {
 	}
 	defer func() { _ = os.Chdir(currentDir) }()
 
-	config.ViperSet(rawCmd, clusterBootstrap.parent.KeyTimeout(), clusterBootstrap.parent.GetTimeout().String())
-	err := RunRawCommand(
+	// Generate etc_hosts
+	out, err := RunRawCommandCaptureStdout(
 		rawCmd,
-		append([]string{
-			"k0sctl",
-			"apply",
-			"--config",
+		[]string{
+			"yq",
+			"(.spec.hosts[]) | explode (.) | .privateAddress + \" \" + .hostname",
 			clusterBootstrapPath + "/cluster.yaml",
-			"--debug",
-		}, args...),
+		},
 	)
 	if err != nil {
+		if len(out) == 0 {
+			return err
+		}
+		return fmt.Errorf("%v\n%s", err, out)
+	}
+	if len(out) == 0 {
+		return fmt.Errorf("empty output from yq")
+	}
+	if err = os.WriteFile(clusterBootstrapOsTmpPath+"/etc_hosts", []byte(out+"\n"), 0600); err != nil {
+		return err
+	}
+
+	// Run k0sctl apply
+	config.ViperSet(rawCmd, mycluster.KeyTimeout(), mycluster.GetTimeout().String())
+	if err := RunRawCommand(
+		rawCmd,
+		append(
+			[]string{
+				"k0sctl",
+				"apply",
+				"--config",
+				clusterBootstrapPath + "/cluster.yaml",
+				"--debug",
+				"--force",
+			},
+			args...),
+	); err != nil {
 		return err
 	}
 
@@ -154,7 +184,7 @@ func (c *Cluster) KeyTimeout() string {
 }
 
 func (c *Cluster) DefaultTimeout() time.Duration {
-	d, _ := time.ParseDuration("5m0s")
+	d, _ := time.ParseDuration("10m0s")
 	return d
 }
 
