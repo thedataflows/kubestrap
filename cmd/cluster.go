@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	rigLog "github.com/k0sproject/rig/log"
 	"github.com/spf13/cobra"
@@ -50,6 +51,13 @@ func init() {
 		"Cluster definition path in the current repository",
 	)
 
+	clusterCmd.PersistentFlags().DurationP(
+		mycluster.KeyTimeout(),
+		"t",
+		mycluster.DefaultTimeout(),
+		"Timeout for executing cluster commands. After time elapses, the command will be terminated",
+	)
+
 	// Bind flags
 	config.ViperBindPFlagSet(clusterCmd, clusterCmd.PersistentFlags())
 
@@ -59,13 +67,27 @@ func init() {
 }
 
 func RunClusterCommand(cmd *cobra.Command, args []string) error {
+	cmd.SilenceUsage = true
+
 	if err := mycluster.CheckRequiredFlags(); err != nil {
 		return err
 	}
 
-	clusterContext := mycluster.GetClusterContext()
-	clusterBootstrapPath := mycluster.GetClusterBootstrapPath()
-	log.Infof("clusterContext=%s; clusterBootstrapPath=%s", clusterContext, clusterBootstrapPath)
+	clusterBootstrapPath := clusterBootstrap.parent.GetClusterBootstrapPath()
+	config.ViperSet(rawCmd, mycluster.KeyTimeout(), mycluster.GetTimeout().String())
+	err := RunRawCommand(
+		rawCmd,
+		append([]string{
+			"k0sctl",
+			"apply",
+			"--config",
+			clusterBootstrapPath + "/cluster.yaml",
+			"--debug",
+		}, args...),
+	)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -116,4 +138,17 @@ func (c *Cluster) GetClusterBootstrapPath() string {
 		)
 	}
 	return clusterBootstrapPath
+}
+
+func (c *Cluster) KeyTimeout() string {
+	return "timeout"
+}
+
+func (c *Cluster) DefaultTimeout() time.Duration {
+	d, _ := time.ParseDuration("5m0s")
+	return d
+}
+
+func (c *Cluster) GetTimeout() time.Duration {
+	return config.ViperGetDuration(c.cmd, c.KeyTimeout())
 }
