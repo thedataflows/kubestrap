@@ -102,7 +102,6 @@ func RunBootstrapSecretsCommand(cmd *cobra.Command, args []string) error {
 		log.Errorf("error generating source files encryption keys: %s", err)
 	}
 
-	log.Info("Patching sops config")
 	if err := secretsBootstrap.PatchSopsConfig(); err != nil {
 		log.Errorf("error patching sops config: %s", err)
 	}
@@ -202,6 +201,7 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 // PatchSopsConfig patches sops config file with age public key
 func (s *SecretsBootstrap) PatchSopsConfig() error {
 	sopsConfigPath := s.parent.GetSopsConfig()
+	log.Infof("Patching sops config: %s", sopsConfigPath)
 	if !file.IsAccessible(sopsConfigPath) {
 		return fmt.Errorf("'%s' is not accessible", sopsConfigPath)
 	}
