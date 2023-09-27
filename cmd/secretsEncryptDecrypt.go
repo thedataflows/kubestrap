@@ -80,6 +80,7 @@ func init() {
 func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 	cmd.SilenceUsage = true
 	secretsEncryptDecrypt.SetCmd(cmd)
+
 	if err := secretsEncryptDecrypt.CheckRequiredFlags(); err != nil {
 		return err
 	}
@@ -90,24 +91,14 @@ func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 
 	if cmd.Use == "decrypt" && os.Getenv("SOPS_AGE_KEY") == "" {
 		log.Infof("Loading private key: %s", secretsEncryptDecrypt.GetPrivateKeyPath())
-		// Capture stdout
-		p, err := file.NewPipeStdout()
-		if err != nil {
-			return err
-		}
-		if err = RunRawCommand(
+		out, err := RunRawCommandCaptureStdout(
 			rawCmd,
 			[]string{
 				"age",
 				"--decrypt",
 				secretsEncryptDecrypt.GetPrivateKeyPath(),
 			},
-		); err != nil {
-			return err
-		}
-
-		// back to normal state
-		out, err := p.CloseStdout()
+		)
 		if err != nil {
 			return err
 		}

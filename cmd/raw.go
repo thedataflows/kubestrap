@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/thedataflows/go-commons/pkg/config"
+	"github.com/thedataflows/go-commons/pkg/file"
 	"github.com/thedataflows/go-commons/pkg/log"
 	"github.com/thedataflows/kubestrap/pkg/kubestrap"
 	"golang.org/x/exp/slices"
@@ -62,6 +63,7 @@ func init() {
 // RunRawCommand unmarshal commands and executes with provided arguments
 func RunRawCommand(cmd *cobra.Command, args []string) error {
 	cmd.SilenceUsage = true
+
 	var commands []kubestrap.RawCommand
 	if err := viper.UnmarshalKey(
 		config.PrefixKey(cmd, raw.KeyRawUtilities()),
@@ -105,6 +107,28 @@ func RunRawCommand(cmd *cobra.Command, args []string) error {
 	return fmt.Errorf("command '%s' is not supported, perhaps add it to the config?", args[0])
 }
 
+func RunRawCommandCaptureStdout(cmd *cobra.Command, args []string) (string, error) {
+	// Capture stdout
+	p, err := file.NewPipeStdout()
+	if err != nil {
+		return "", err
+	}
+
+	// Run the command
+	config.ViperSet(cmd, raw.KeyBufferedOutput(), "true")
+	if err = RunRawCommand(cmd, args); err != nil {
+		return "", err
+	}
+
+	// back to normal state
+	out, err := p.CloseStdout()
+	if err != nil {
+		return "", err
+	}
+
+	return out, nil
+}
+
 func NewRaw(parent *Root) *Raw {
 	return &Raw{
 		parent: parent,
@@ -138,7 +162,7 @@ func (r *Raw) KeyBufferedOutput() string {
 }
 
 func (r *Raw) DefaultBufferedOutput() bool {
-	return true
+	return false
 }
 
 func (r *Raw) GetBufferedOutput() bool {
