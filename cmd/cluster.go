@@ -5,12 +5,14 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	rigLog "github.com/k0sproject/rig/log"
 	"github.com/spf13/cobra"
 	"github.com/thedataflows/go-commons/pkg/config"
 	"github.com/thedataflows/go-commons/pkg/defaults"
+	"github.com/thedataflows/go-commons/pkg/file"
 	"github.com/thedataflows/go-commons/pkg/log"
 	"github.com/thedataflows/kubestrap/pkg/kubernetes"
 )
@@ -74,7 +76,14 @@ func RunClusterCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	clusterBootstrapPath := clusterBootstrap.parent.GetClusterBootstrapPath()
-	config.ViperSet(rawCmd, mycluster.KeyTimeout(), mycluster.GetTimeout().String())
+
+	currentDir := file.WorkingDirectory()
+	if err := os.Chdir(clusterBootstrapPath); err != nil {
+		return err
+	}
+	defer func() { _ = os.Chdir(currentDir) }()
+
+	config.ViperSet(rawCmd, clusterBootstrap.parent.KeyTimeout(), clusterBootstrap.parent.GetTimeout().String())
 	err := RunRawCommand(
 		rawCmd,
 		append([]string{
