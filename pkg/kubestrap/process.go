@@ -118,8 +118,7 @@ func SetEnvPath(element string, before bool) error {
 	if before {
 		env = stringutil.ConcatStrings(element, delim, path)
 	}
-	err := os.Setenv("PATH", env)
-	if err != nil {
+	if err := os.Setenv("PATH", env); err != nil {
 		return err
 	}
 	return nil

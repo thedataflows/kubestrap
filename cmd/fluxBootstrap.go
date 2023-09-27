@@ -102,7 +102,7 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err = yaml.WriteFile(k, kustomizationFilePath); err != nil {
+	if err := yaml.WriteFile(k, kustomizationFilePath); err != nil {
 		return err
 	}
 
@@ -127,7 +127,7 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error committing: %v", err)
 	}
 	log.Infof("Committed %v", hash)
-	if err = r.Push(&git.PushOptions{}); err != nil {
+	if err := r.Push(&git.PushOptions{}); err != nil {
 		return fmt.Errorf("error pushing: %v", err)
 	}
 

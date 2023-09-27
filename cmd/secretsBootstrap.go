@@ -117,8 +117,7 @@ func RunBootstrapSecretsCommand(cmd *cobra.Command, args []string) error {
 
 // GenerateAgeKeys generates age public and private key pair and writes them to files
 func (s *SecretsBootstrap) GenerateAgeKeys() error {
-	err := os.MkdirAll(s.parent.GetSecretsDir(), 0700)
-	if err != nil {
+	if err := os.MkdirAll(s.parent.GetSecretsDir(), 0700); err != nil {
 		return err
 	}
 
@@ -127,7 +126,7 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 	encrypt := false
 	if !file.IsAccessible(privateKeyPath) || s.GetForce() {
 		// Create the private key
-		if err = RunRawCommand(
+		if err := RunRawCommand(
 			rawCmd,
 			[]string{
 				"age-keygen",
@@ -157,7 +156,7 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 	}
 	if encrypt {
 		// Encrypt the private key in place
-		if err = RunRawCommand(
+		if err := RunRawCommand(
 			rawCmd,
 			[]string{
 				"age",
@@ -175,7 +174,7 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 
 	if !file.IsAccessible(s.GetPublicKeyPath()) || s.GetForce() {
 		// try to create the public key
-		if err = RunRawCommand(
+		if err := RunRawCommand(
 			rawCmd,
 			[]string{
 				"age-keygen",
@@ -190,7 +189,7 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 	}
 
 	if file.IsAccessible(plainKeyFile) {
-		if err = os.Remove(plainKeyFile); err != nil {
+		if err := os.Remove(plainKeyFile); err != nil {
 			log.Errorf("failed to remove unencrypted '%s': %s", plainKeyFile, err)
 		}
 	}
@@ -243,8 +242,7 @@ func (s *SecretsBootstrap) GenerateSshKeys(keyBaseFileName string) error {
 	}
 
 	clusterBootstrapPath := s.parent.GetClusterBootstrapPath()
-	err := os.MkdirAll(clusterBootstrapPath, 0700)
-	if err != nil {
+	if err := os.MkdirAll(clusterBootstrapPath, 0700); err != nil {
 		return err
 	}
 

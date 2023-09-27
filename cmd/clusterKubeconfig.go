@@ -59,12 +59,14 @@ func RunClusterKubeconfigCommand(cmd *cobra.Command, args []string) error {
 	config.ViperSet(rawCmd, clusterBootstrap.parent.KeyTimeout(), clusterBootstrap.parent.GetTimeout().String())
 	out, err := RunRawCommandCaptureStdout(
 		rawCmd,
-		[]string{
-			"k0sctl",
-			"kubeconfig",
-			"--config",
-			clusterBootstrapPath + "/cluster.yaml",
-		},
+		append(
+			[]string{
+				"k0sctl",
+				"kubeconfig",
+				"--config",
+				clusterBootstrapPath + "/cluster.yaml",
+			},
+			args...),
 	)
 	if err != nil {
 		if len(out) == 0 {

@@ -42,8 +42,7 @@ func NewK0sCluster(context, bootstrapPath string) (*K0sCluster, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = yaml.Unmarshal(clusterData, newCluster.spec)
-	if err != nil {
+	if err := yaml.Unmarshal(clusterData, newCluster.spec); err != nil {
 		return nil, err
 	}
 	return newCluster, nil

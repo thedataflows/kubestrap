@@ -51,8 +51,7 @@ func RunClusterBootstrapCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	clusterBootstrapPath := clusterBootstrap.parent.GetClusterBootstrapPath()
-	err := os.MkdirAll(clusterBootstrapPath, 0700)
-	if err != nil {
+	if err := os.MkdirAll(clusterBootstrapPath, 0700); err != nil {
 		return err
 	}
 
@@ -87,7 +86,7 @@ func RunClusterBootstrapCommand(cmd *cobra.Command, args []string) error {
 	sshKey := clusterBootstrapPath + "/cluster.sshkey.enc"
 	if !file.IsAccessible(sshKey) {
 		config.ViperSet(secretsCmd, secrets.KeySecretsContext(), clusterBootstrap.parent.GetClusterContext())
-		if err = RunBootstrapSecretsCommand(
+		if err := RunBootstrapSecretsCommand(
 			secretsBootstrapCmd,
 			args,
 		); err != nil {

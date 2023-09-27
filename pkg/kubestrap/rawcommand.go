@@ -254,8 +254,7 @@ extract:
 	}
 
 	if download {
-		err := os.Remove(cachePath)
-		if err != nil {
+		if err := os.Remove(cachePath); err != nil {
 			return nil, err
 		}
 	}
@@ -270,14 +269,12 @@ func (command *RawCommand) ExeDir() (string, error) {
 	}
 	dir := filepath.Clean(fmt.Sprintf("%s/bin/%s/%s", appHome, command.Name, command.Release))
 	if !file.IsDirectory(dir) {
-		errMkdir := os.MkdirAll(dir, 0700)
-		if errMkdir != nil {
-			return "", errMkdir
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return "", err
 		}
 	}
-	errEnv := SetEnvPath(dir, true)
-	if errEnv != nil {
-		return "", errEnv
+	if err := SetEnvPath(dir, true); err != nil {
+		return "", err
 	}
 	return dir, nil
 }

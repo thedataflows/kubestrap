@@ -107,7 +107,7 @@ func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 		}
 
 		// set SOPS_AGE_KEY environment variable
-		if err = os.Setenv("SOPS_AGE_KEY", out); err != nil {
+		if err := os.Setenv("SOPS_AGE_KEY", out); err != nil {
 			return err
 		}
 	}

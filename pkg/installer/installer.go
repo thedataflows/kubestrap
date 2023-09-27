@@ -104,7 +104,7 @@ func ExtractFiles(archivePath, destination string, filesToExtract []string, patt
 	// try to extract
 	extractedFiles := make([]string, 0, len(filesToExtract))
 	if ex, ok := format.(archiver.Extractor); ok {
-		err := ex.Extract(
+		if err := ex.Extract(
 			context.Background(),
 			input,
 			nil,
@@ -127,16 +127,14 @@ func ExtractFiles(archivePath, destination string, filesToExtract []string, patt
 				if stripPath {
 					dstFileName = filepath.Base(f.NameInArchive)
 				}
-				err := WriteExtractedFile(f, filepath.Join(destination, dstFileName))
-				if err != nil {
+				if err := WriteExtractedFile(f, filepath.Join(destination, dstFileName)); err != nil {
 					return err
 				}
 				extractedFiles = append(extractedFiles, dstFileName)
 				log.Debugf("extracted %s", dstFileName)
 				return nil
 			},
-		)
-		if err != nil {
+		); err != nil {
 			return nil, err
 		}
 	}
