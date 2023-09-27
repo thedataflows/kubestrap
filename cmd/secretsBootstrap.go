@@ -145,7 +145,7 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 		}
 		found := finder.Grep(privateKeyPath)
 		if found == nil {
-			log.Warnf("Error determining '%s' is encrypted", privateKeyPath)
+			log.Errorf("error determining if '%s' is encrypted", privateKeyPath)
 		} else {
 			if len(found.Results) > 0 {
 				return fmt.Errorf("'%s' exists. Use --force flag to override", privateKeyPath)
@@ -192,7 +192,7 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 
 	if file.IsAccessible(plainKeyFile) {
 		if err = os.Remove(plainKeyFile); err != nil {
-			log.Warnf("Failed to remove unencrypted '%s': %s", plainKeyFile, err)
+			log.Errorf("failed to remove unencrypted '%s': %s", plainKeyFile, err)
 		}
 	}
 

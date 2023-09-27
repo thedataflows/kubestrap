@@ -79,13 +79,13 @@ func RunClusterRemoteCommand(cmd *cobra.Command, args []string) error {
 		err := hosts[i].Connect()
 		defer hosts[i].Disconnect()
 		if err != nil {
-			log.Warnf("[%s] Failed to connect: %v", hosts[i].Address(), err)
+			log.Errorf("[%s] Failed to connect: %v", hosts[i].Address(), err)
 			continue
 		}
 		remoteCommand := strings.Join(args, " ")
 		o, err := hosts[i].ExecOutput(remoteCommand)
 		if err != nil {
-			log.Warnf("[%s] Failed to execute '%s': %v", hosts[i].Address(), remoteCommand, err)
+			log.Errorf("[%s] Failed to execute '%s': %v", hosts[i].Address(), remoteCommand, err)
 			continue
 		}
 		log.Infof("[%s] Executed '%s':\n%v", hosts[i].Address(), remoteCommand, o)

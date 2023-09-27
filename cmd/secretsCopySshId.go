@@ -102,7 +102,7 @@ func RunSecretsCopySshIdCommand(cmd *cobra.Command, args []string) error {
 	privateKeyFile := secretsCopySshId.GetPrivateKeyFile()
 	identity, err := os.ReadFile(privateKeyFile)
 	if err != nil {
-		log.Warnf("Error reading private key file %s: %v", privateKeyFile, err)
+		log.Errorf("error reading private key file %s: %v", privateKeyFile, err)
 	}
 
 	for i := 0; i < len(hosts); i += 1 {
@@ -115,7 +115,7 @@ func RunSecretsCopySshIdCommand(cmd *cobra.Command, args []string) error {
 		// connect
 		sshClient, err := connectToHost("root", hosts[i].Address(), 22, identity)
 		if err != nil {
-			log.Warnf("[%s] error connecting: %v", host, err)
+			log.Errorf("[%s] error connecting: %v", host, err)
 			continue
 		}
 		defer sshClient.Close()
@@ -128,13 +128,13 @@ func RunSecretsCopySshIdCommand(cmd *cobra.Command, args []string) error {
 		)
 		if err != nil {
 			stderrBytes, _ := io.ReadAll(stderrPipe)
-			log.Warnf("[%s] error running remote command: %v: %s", host, err, string(stderrBytes))
+			log.Errorf("[%s] error running remote command: %v: %s", host, err, string(stderrBytes))
 			continue
 		}
 		// get local pubkey
 		pubKey, err := getPubKey(*hosts[i].SSH.KeyPath, clusterBootstrapPath)
 		if err != nil {
-			log.Warnf("[%s] error reading ssh pubkey: %v", host, err)
+			log.Errorf("[%s] error reading ssh pubkey: %v", host, err)
 			continue
 		}
 		log.Debugf("[%s] using ssh pubkey '%s'", host, pubKey)
@@ -157,12 +157,12 @@ func RunSecretsCopySshIdCommand(cmd *cobra.Command, args []string) error {
 			)
 			if err != nil {
 				stderrBytes, _ := io.ReadAll(stderrPipe)
-				log.Warnf("[%s] error running remote command: %v: %s", host, err, string(stderrBytes))
+				log.Errorf("[%s] error running remote command: %v: %s", host, err, string(stderrBytes))
 				continue
 			}
 			// Try to run ssh-copy-id script if the above failed
 			if err := runSshCopyIdScript(host, clusterBootstrapPath); err != nil {
-				log.Warnf("Error running ssh-copy-id script: %v", err)
+				log.Errorf("error running ssh-copy-id script: %v", err)
 				continue
 			}
 		}
@@ -237,7 +237,7 @@ func connectToHost(user, host string, port int, rawPrivateKey []byte) (*ssh.Clie
 	if len(rawPrivateKey) > 0 {
 		signer, err := signerFromPrivateKey(rawPrivateKey)
 		if err != nil {
-			log.Warnf("Error parsing private key: %v", err)
+			log.Errorf("error parsing private key: %v", err)
 		} else {
 			authMethods = append(authMethods, ssh.PublicKeys(signer))
 		}
