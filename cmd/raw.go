@@ -118,8 +118,10 @@ func RunRawCommandCaptureStdout(cmd *cobra.Command, args []string) (string, erro
 	}
 
 	// Run the command
-	config.ViperSet(cmd, raw.KeyBufferedOutput(), "true")
+	currentBufferedOutput := raw.GetBufferedOutput()
+	raw.SetBufferedOutput(true)
 	rawErr := RunRawCommand(cmd, args)
+	raw.SetBufferedOutput(currentBufferedOutput)
 
 	// back to normal state
 	out, err := p.CloseStdout()
@@ -168,4 +170,8 @@ func (r *Raw) DefaultBufferedOutput() bool {
 
 func (r *Raw) GetBufferedOutput() bool {
 	return config.ViperGetBool(r.cmd, r.KeyBufferedOutput())
+}
+
+func (r *Raw) SetBufferedOutput(v bool) {
+	config.ViperSet(r.cmd, r.KeyBufferedOutput(), fmt.Sprint(v))
 }
