@@ -54,6 +54,20 @@ func init() {
 		"Cluster definition path in the current repo",
 	)
 
+	secretsCmd.PersistentFlags().StringP(
+		secrets.KeySopsConfig(),
+		"s",
+		secrets.DefaultSopsConfig(),
+		"SOPS configuration file",
+	)
+
+	secretsCmd.PersistentFlags().StringP(
+		secrets.KeyKubeClusterDir(),
+		"k",
+		secrets.DefaultKubeClusterDir(),
+		"Kubernetes cluster directory",
+	)
+
 	// Bind flags
 	config.ViperBindPFlagSet(secretsCmd, secretsCmd.PersistentFlags())
 
@@ -131,4 +145,40 @@ func (s *Secrets) GetClusterBootstrapPath() string {
 
 func (s *Secrets) GetProjectRoot() string {
 	return s.parent.GetProjectRoot()
+}
+
+func (s *Secrets) KeySopsConfig() string {
+	return "sops-config"
+}
+
+func (s *Secrets) DefaultSopsConfig() string {
+	return s.DefaultKubeClusterDir() + "/.sops.yaml"
+}
+
+func (s *Secrets) GetSopsConfig() string {
+	secretsEncryptSopsConfig := config.ViperGetString(s.cmd, s.KeySopsConfig())
+	if secretsEncryptSopsConfig == s.DefaultSopsConfig() {
+		secretsEncryptSopsConfig = s.GetKubeClusterDir() + "/.sops.yaml"
+	}
+	return secretsEncryptSopsConfig
+}
+
+func (s *Secrets) KeyKubeClusterDir() string {
+	return "kube-cluster-dir"
+}
+
+func (s *Secrets) DefaultKubeClusterDir() string {
+	return fmt.Sprintf("kubernetes/cluster-%s", defaults.Undefined)
+}
+
+func (s *Secrets) GetKubeClusterDir() string {
+	secretsEncryptKubeClusterDir := config.ViperGetString(s.cmd, s.KeyKubeClusterDir())
+	if secretsEncryptKubeClusterDir == s.DefaultKubeClusterDir() {
+		secretsEncryptKubeClusterDir = fmt.Sprintf(
+			"%s/kubernetes/cluster-%s",
+			s.GetProjectRoot(),
+			s.GetSecretsContext(),
+		)
+	}
+	return secretsEncryptKubeClusterDir
 }

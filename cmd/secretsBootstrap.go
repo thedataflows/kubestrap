@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/thedataflows/go-commons/pkg/config"
@@ -98,13 +99,18 @@ func RunBootstrapSecretsCommand(cmd *cobra.Command, args []string) error {
 
 	log.Info("Generating source files encryption keys")
 	if err := secretsBootstrap.GenerateAgeKeys(); err != nil {
-		log.Warnf("Error generating source files encryption keys: %s", err)
+		log.Errorf("error generating source files encryption keys: %s", err)
+	}
+
+	log.Info("Patching sops config")
+	if err := secretsBootstrap.PatchSopsConfig(); err != nil {
+		log.Errorf("error patching sops config: %s", err)
 	}
 
 	// Try to generate ssh private key if not exists, but continue on failure
 	log.Info("Generating SSH keys")
 	if err := secretsBootstrap.GenerateSshKeys(constants.DefaultClusterSshKeyFileName); err != nil {
-		log.Warnf("Error generating SSH keys: %s", err)
+		log.Errorf("error generating SSH keys: %s", err)
 	}
 
 	return nil
@@ -190,6 +196,43 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 		}
 	}
 
+	return nil
+}
+
+// PatchSopsConfig patches sops config file with age public key
+func (s *SecretsBootstrap) PatchSopsConfig() error {
+	sopsConfigPath := s.parent.GetSopsConfig()
+	if !file.IsAccessible(sopsConfigPath) {
+		return fmt.Errorf("'%s' is not accessible", sopsConfigPath)
+	}
+	pubKeysData, err := os.ReadFile(s.GetPublicKeyPath())
+	if err != nil {
+		return err
+	}
+	pubKeys := strings.Split(string(pubKeysData), "\n")
+	filteredPubKeys := make([]string, 0, len(pubKeys))
+	for _, pk := range pubKeys {
+		pk = strings.Trim(pk, " \t")
+		if len(pk) > 0 {
+			filteredPubKeys = append(filteredPubKeys, "\""+pk+"\"")
+		}
+	}
+	if len(filteredPubKeys) == 0 {
+		return fmt.Errorf("'%s' contains empty lines", s.GetPublicKeyPath())
+	}
+	const yqExpr = `.creation_rules[].key_groups[].age`
+	if err := RunRawCommand(
+		rawCmd,
+		[]string{
+			"yq",
+			"--inplace",
+			"--prettyPrint",
+			fmt.Sprintf("%s += [%s] | %s  = (%s | unique)", yqExpr, strings.Join(filteredPubKeys, ","), yqExpr, yqExpr),
+			sopsConfigPath,
+		},
+	); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -62,20 +62,6 @@ func init() {
 		"Write files in-place instead of outputting to stdout",
 	)
 
-	flags.StringP(
-		secretsEncryptDecrypt.KeySopsConfig(),
-		"s",
-		secretsEncryptDecrypt.DefaultSopsConfig(),
-		"SOPS configuration file",
-	)
-
-	flags.StringP(
-		secretsEncryptDecrypt.KeyKubeClusterDir(),
-		"k",
-		secretsEncryptDecrypt.DefaultKubeClusterDir(),
-		"Kubernetes cluster directory",
-	)
-
 	secretsEncryptCmd.Flags().AddFlagSet(&flags)
 	secretsDecryptCmd.Flags().AddFlagSet(&flags)
 
@@ -138,7 +124,7 @@ func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 			log.Infof("%s%sing: %s", strings.ToUpper(cmd.Use[:1]), cmd.Use[1:], result.FilePath)
 			newArgs := []string{"sops", "--" + cmd.Use}
 			if cmd.Use == "encrypt" {
-				newArgs = append(newArgs, "--config", secretsEncryptDecrypt.GetSopsConfig())
+				newArgs = append(newArgs, "--config", secretsEncryptDecrypt.parent.GetSopsConfig())
 			}
 			newArgs = append(newArgs, secretsEncryptDecrypt.GetInplace(), result.FilePath)
 			status, err := LoadRawCommandsAndRunOne(rawCmd, newArgs, true)
@@ -174,7 +160,7 @@ func findFiles(pattern string) *search.Results {
 		ApplyToDirs:  false,
 	}
 
-	return search.FindFile(ctx, secretsEncryptDecrypt.GetProjectRoot(), fileFilter, finder, runtime.NumCPU())
+	return search.FindFile(ctx, secretsEncryptDecrypt.parent.GetKubeClusterDir(), fileFilter, finder, runtime.NumCPU())
 }
 
 func NewSecretsEncryptDecrypt(parent *Secrets) *SecretsEncryptDecrypt {
@@ -208,42 +194,6 @@ func (s *SecretsEncryptDecrypt) GetInplace() string {
 		return "--in-place"
 	}
 	return ""
-}
-
-func (s *SecretsEncryptDecrypt) KeySopsConfig() string {
-	return "sops-config"
-}
-
-func (s *SecretsEncryptDecrypt) DefaultSopsConfig() string {
-	return s.DefaultKubeClusterDir() + "/.sops.yaml"
-}
-
-func (s *SecretsEncryptDecrypt) GetSopsConfig() string {
-	secretsEncryptSopsConfig := config.ViperGetString(s.cmd, s.KeySopsConfig())
-	if secretsEncryptSopsConfig == s.DefaultSopsConfig() {
-		secretsEncryptSopsConfig = s.GetKubeClusterDir() + "/.sops.yaml"
-	}
-	return secretsEncryptSopsConfig
-}
-
-func (s *SecretsEncryptDecrypt) KeyKubeClusterDir() string {
-	return "kube-cluster-dir"
-}
-
-func (s *SecretsEncryptDecrypt) DefaultKubeClusterDir() string {
-	return fmt.Sprintf("kubernetes/cluster-%s", defaults.Undefined)
-}
-
-func (s *SecretsEncryptDecrypt) GetKubeClusterDir() string {
-	secretsEncryptKubeClusterDir := config.ViperGetString(s.cmd, s.KeyKubeClusterDir())
-	if secretsEncryptKubeClusterDir == s.DefaultKubeClusterDir() {
-		secretsEncryptKubeClusterDir = fmt.Sprintf(
-			"%s/kubernetes/cluster-%s",
-			s.GetProjectRoot(),
-			s.parent.GetSecretsContext(),
-		)
-	}
-	return secretsEncryptKubeClusterDir
 }
 
 func (s *SecretsEncryptDecrypt) KeyPrivateKeyPath() string {
