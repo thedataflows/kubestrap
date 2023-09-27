@@ -4,12 +4,15 @@ Copyright © 2023 Dataflows
 package cmd
 
 import (
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/k0sproject/k0sctl/pkg/apis/k0sctl.k0sproject.io/v1beta1/cluster"
 	rigLog "github.com/k0sproject/rig/log"
 	"github.com/spf13/cobra"
 	"github.com/thedataflows/go-commons/pkg/config"
+	"github.com/thedataflows/go-commons/pkg/file"
 	"github.com/thedataflows/go-commons/pkg/log"
 	"github.com/thedataflows/kubestrap/pkg/kubestrap"
 )
@@ -56,6 +59,10 @@ func RunClusterRemoteCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if len(args) == 0 {
+		return fmt.Errorf("command to execute is not specified")
+	}
+
 	clusterRemoteHosts := clusterRemote.GetClusterRemoteHosts()
 
 	// Load cluster spec
@@ -74,6 +81,12 @@ func RunClusterRemoteCommand(cmd *cobra.Command, args []string) error {
 			return len(clusterRemoteHosts) == 0
 		},
 	)
+
+	currentDir := file.WorkingDirectory()
+	if err := os.Chdir(clusterRemote.parent.GetClusterBootstrapPath()); err != nil {
+		return err
+	}
+	defer func() { _ = os.Chdir(currentDir) }()
 
 	for i := 0; i < len(hosts); i += 1 {
 		err := hosts[i].Connect()
