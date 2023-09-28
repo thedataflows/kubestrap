@@ -102,6 +102,10 @@ func RunClusterRemoteCommand(cmd *cobra.Command, args []string) error {
 			log.Errorf("[%s] Failed to execute '%s': %v", hosts[i].Address(), remoteCommand, err)
 			continue
 		}
+		if len(o) == 0 {
+			log.Infof("[%s] Executed '%s'", hosts[i].Address(), remoteCommand)
+			continue
+		}
 		log.Infof("[%s] Executed '%s':\n%v", hosts[i].Address(), remoteCommand, o)
 	}
 	return nil
