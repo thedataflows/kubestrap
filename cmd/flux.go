@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/thedataflows/go-commons/pkg/config"
@@ -47,6 +48,13 @@ func init() {
 		"n",
 		flux.DefaultFluxNamespace(),
 		"Kubernetes namespace for FluxCD",
+	)
+
+	fluxCmd.PersistentFlags().DurationP(
+		flux.KeyTimeout(),
+		"t",
+		flux.DefaultTimeout(),
+		"Timeout for executing flux commands. After time elapses, the command will be terminated",
 	)
 
 	// Bind flags
@@ -113,4 +121,17 @@ func (f *Flux) GetFluxNamespace() string {
 
 func (f *Flux) GetProjectRoot() string {
 	return f.parent.GetProjectRoot()
+}
+
+func (f *Flux) KeyTimeout() string {
+	return "timeout"
+}
+
+func (f *Flux) DefaultTimeout() time.Duration {
+	d, _ := time.ParseDuration("5m0s")
+	return d
+}
+
+func (f *Flux) GetTimeout() time.Duration {
+	return config.ViperGetDuration(f.cmd, f.KeyTimeout())
 }
