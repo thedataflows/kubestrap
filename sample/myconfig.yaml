@@ -4,14 +4,14 @@ flux:
   bootstrap:
     # path: kubernetes/cluster-mycontext/flux-system
     ## https://fluxcd.io/flux/cmd/flux_bootstrap_gitlab/
-    # subcommand: |
+    # command: |
     #   gitlab
     #   --components-extra=image-reflector-controller,image-automation-controller
     #   --owner=owner-name
     #   --repository=repo-name
     #   --branch=main
     #   --token-auth
-    #   --path=kubernetes/cluster-mycontext/flux-system
+    #   --path=kubernetes/cluster-mycontext
   reconcile: kustomization flux-system --namespace flux-system --with-source
 secrets:
   context: *context
