@@ -4,10 +4,11 @@ Copyright © 2023 Dataflows
 package cmd
 
 import (
+	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/spf13/cobra"
 	"github.com/thedataflows/go-commons/pkg/config"
 	"github.com/thedataflows/go-commons/pkg/log"
@@ -78,13 +79,18 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 		newArgs = append(newArgs, fmt.Sprintf("--%s=%s", fluxBootstrap.parent.KeyFluxNamespace(), fluxBootstrap.parent.GetFluxNamespace()))
 		newArgs = config.AppendStringSplitArgs(cmd, newArgs, fluxBootstrap.KeyFluxBootstrapCommand(), "")
 	}
+
+	config.ViperSet(rawCmd, fluxBootstrap.parent.KeyTimeout(), fluxBootstrap.parent.GetTimeout().String())
 	if err := RunRawCommand(rawCmd, newArgs); err != nil {
 		return err
 	}
 
-	// Patch flux kustomization
-	kustomizationFilePath := fluxBootstrap.GetFluxBootstrapPath() + "/kustomization.yaml"
+	kustomizationFilePath, err := filepath.Abs(fluxBootstrap.GetFluxBootstrapPath() + "/kustomization.yaml")
+	if err != nil {
+		return err
+	}
 
+	// Patch flux kustomization
 	kData, err := yaml.ReadFile(kustomizationFilePath)
 	if err != nil {
 		return err
@@ -103,36 +109,68 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := yaml.WriteFile(k, kustomizationFilePath); err != nil {
+	if err := writeYaml(k, kustomizationFilePath); err != nil {
 		return err
 	}
 
+	// TODO repair this, it corrupts the git repo
 	// Git commit and push the patched kustomization
-	r, err := git.PlainOpen(root.GetProjectRoot())
-	if err != nil {
-		return fmt.Errorf("error opening git repository: %v", err)
-	}
-	w, err := r.Worktree()
-	if err != nil {
-		return fmt.Errorf("error getting work tree: %v", err)
-	}
-	hash, err := w.Add(kustomizationFilePath)
-	if err != nil {
-		return fmt.Errorf("error adding %s to the git repo: %v", kustomizationFilePath, err)
-	}
-	hash, err = w.Commit("Patch kustomization",
-		&git.CommitOptions{
-			Parents: []plumbing.Hash{hash},
-		})
-	if err != nil {
-		return fmt.Errorf("error committing: %v", err)
-	}
-	log.Infof("Committed %v", hash)
-	if err := r.Push(&git.PushOptions{}); err != nil {
-		return fmt.Errorf("error pushing: %v", err)
-	}
+	// r, err := git.PlainOpen(fluxBootstrap.parent.GetProjectRoot())
+	// if err != nil {
+	// 	return fmt.Errorf("error opening git repository: %v", err)
+	// }
+	// w, err := r.Worktree()
+	// if err != nil {
+	// 	return fmt.Errorf("error getting work tree: %v", err)
+	// }
+	// status, err := w.Status()
+	// if err != nil {
+	// 	return fmt.Errorf("error getting git status: %v", err)
+	// }
+	// if status.File(kustomizationFilePath).Staging == git.Unmodified {
+	// 	return nil
+	// }
+	// // file relative to the git root
+	// rootDirAbs, err := filepath.Abs(fluxBootstrap.parent.GetProjectRoot())
+	// if err != nil {
+	// 	return err
+	// }
+	// kustomizationFilePath = strings.Replace(kustomizationFilePath, rootDirAbs, "", -1)
+	// hash, err := w.Add(kustomizationFilePath)
+	// if err != nil {
+	// 	return fmt.Errorf("error adding %s to the git repo: %v", kustomizationFilePath, err)
+	// }
+
+	// hash, err = w.Commit("Patch kustomization",
+	// 	&git.CommitOptions{
+	// 		Parents: []plumbing.Hash{hash},
+	// 	})
+	// if err != nil {
+	// 	return fmt.Errorf("error committing: %v", err)
+	// }
+	// log.Infof("Committed %v", hash)
+	// if err := r.Push(&git.PushOptions{}); err != nil {
+	// 	return fmt.Errorf("error pushing: %v", err)
+	// }
 
 	return nil
+}
+
+// writeYaml writes yaml node to a file. Inspired from yaml.String() with WideSequenceStyle formatting options and space trimming
+func writeYaml(node *yaml.RNode, filePath string) error {
+	b := &bytes.Buffer{}
+	node.Document().Style = yaml.FlowStyle
+	e := yaml.NewEncoderWithOptions(b, &yaml.EncoderOptions{
+		SeqIndent: yaml.WideSequenceStyle,
+	})
+	if err := e.Encode(node.Document()); err != nil {
+		return err
+	}
+	if err := e.Close(); err != nil {
+		return err
+	}
+
+	return os.WriteFile(filePath, b.Bytes(), 0600)
 }
 
 func NewFluxBootstrap(parent *Flux) *FluxBootstrap {
