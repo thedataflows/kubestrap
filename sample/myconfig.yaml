@@ -11,7 +11,8 @@ flux:
     #   --repository=repo-name
     #   --branch=main
     #   --token-auth
-  reconcile: kustomization flux-system --with-source
+    #   --path=kubernetes/cluster-mycontext/flux-system
+  reconcile: kustomization flux-system --namespace flux-system --with-source
 secrets:
   context: *context
   # bootstrap-path: bootstrap/cluster-mycontext
