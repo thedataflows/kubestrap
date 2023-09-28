@@ -49,9 +49,11 @@ var (
 func init() {
 	secretsCmd.AddCommand(secretsEncryptCmd)
 	secretsEncryptCmd.SilenceErrors = secretsEncryptCmd.Parent().SilenceErrors
+	secretsEncryptCmd.SilenceUsage = secretsEncryptCmd.Parent().SilenceUsage
 
 	secretsCmd.AddCommand(secretsDecryptCmd)
 	secretsEncryptCmd.SilenceErrors = secretsDecryptCmd.Parent().SilenceErrors
+	secretsEncryptCmd.SilenceUsage = secretsDecryptCmd.Parent().SilenceUsage
 
 	flags := pflag.FlagSet{}
 
@@ -78,7 +80,6 @@ func init() {
 }
 
 func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
-	cmd.SilenceUsage = true
 	secretsEncryptDecrypt.SetCmd(cmd)
 
 	if err := secretsEncryptDecrypt.CheckRequiredFlags(); err != nil {
@@ -181,7 +182,7 @@ func (s *SecretsEncryptDecrypt) KeyInplace() string {
 }
 
 func (s *SecretsEncryptDecrypt) DefaultInplace() bool {
-	return false
+	return true
 }
 
 func (s *SecretsEncryptDecrypt) GetInplace() string {
