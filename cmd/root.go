@@ -35,6 +35,8 @@ var (
 			)
 			_ = cmd.Help()
 		},
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	root = NewRoot()
@@ -57,8 +59,6 @@ func init() {
 	if configOptsErr != nil {
 		panic(configOptsErr)
 	}
-
-	rootCmd.SilenceErrors = true
 
 	configOpts.Flags.String(
 		root.KeyProjectRoot(),

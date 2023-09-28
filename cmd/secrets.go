@@ -32,6 +32,7 @@ var (
 func init() {
 	rootCmd.AddCommand(secretsCmd)
 	secretsCmd.SilenceErrors = secretsCmd.Parent().SilenceErrors
+	secretsCmd.SilenceUsage = secretsCmd.Parent().SilenceUsage
 
 	secretsCmd.PersistentFlags().StringP(
 		secrets.KeySecretsContext(),

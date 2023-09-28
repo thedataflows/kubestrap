@@ -38,6 +38,7 @@ var (
 func init() {
 	rootCmd.AddCommand(clusterCmd)
 	clusterCmd.SilenceErrors = clusterCmd.Parent().SilenceErrors
+	clusterCmd.SilenceUsage = clusterCmd.Parent().SilenceUsage
 
 	clusterCmd.PersistentFlags().StringP(
 		mycluster.KeyClusterContext(),
@@ -69,8 +70,6 @@ func init() {
 }
 
 func RunClusterCommand(cmd *cobra.Command, args []string) error {
-	cmd.SilenceUsage = true
-
 	if err := mycluster.CheckRequiredFlags(); err != nil {
 		return err
 	}
@@ -127,6 +126,33 @@ func RunClusterCommand(cmd *cobra.Command, args []string) error {
 	); err != nil {
 		return err
 	}
+
+	// TODO
+	// Check if sops-age secret exists
+	// Decrypt age private key
+	// log.Infof("Loading private key: %s", secretsEncryptDecrypt.GetPrivateKeyPath())
+	// out, err = RunRawCommandCaptureStdout(
+	// 	rawCmd,
+	// 	[]string{
+	// 		"age",
+	// 		"--decrypt",
+	// 		secretsEncryptDecrypt.GetPrivateKeyPath(),
+	// 	},
+	// )
+	// if err != nil {
+	// 	if len(out) == 0 {
+	// 		return err
+	// 	}
+	// 	return fmt.Errorf("%v\n%s", err, out)
+	// }
+	// if len(out) == 0 {
+	// 	return fmt.Errorf("private key is empty")
+	// }
+	// out = fmt.Sprintf(
+
+	// Write sops-age secret
+	// Annotate sops-age secret
+
 
 	return nil
 }

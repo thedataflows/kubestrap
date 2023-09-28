@@ -53,6 +53,7 @@ var (
 func init() {
 	secretsCmd.AddCommand(secretsCopySshIdCmd)
 	secretsCopySshIdCmd.SilenceErrors = secretsCopySshIdCmd.Parent().SilenceErrors
+	secretsCopySshIdCmd.SilenceUsage = secretsCopySshIdCmd.Parent().SilenceUsage
 
 	secretsCopySshIdCmd.Flags().StringSlice(
 		secretsCopySshId.KeyHosts(),

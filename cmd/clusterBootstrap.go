@@ -35,6 +35,7 @@ var (
 func init() {
 	clusterCmd.AddCommand(clusterBootstrapCmd)
 	clusterBootstrapCmd.SilenceErrors = clusterBootstrapCmd.Parent().SilenceErrors
+	clusterBootstrapCmd.SilenceUsage = clusterBootstrapCmd.Parent().SilenceUsage
 
 	// Bind flags
 	config.ViperBindPFlagSet(clusterBootstrapCmd, nil)

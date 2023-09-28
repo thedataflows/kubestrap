@@ -54,6 +54,7 @@ var (
 func init() {
 	secretsCmd.AddCommand(secretsBootstrapCmd)
 	secretsBootstrapCmd.SilenceErrors = secretsBootstrapCmd.Parent().SilenceErrors
+	secretsBootstrapCmd.SilenceUsage = secretsBootstrapCmd.Parent().SilenceUsage
 
 	secretsBootstrapCmd.Flags().StringP(
 		secretsBootstrap.KeyNamespace(),

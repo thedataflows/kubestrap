@@ -38,6 +38,7 @@ var (
 func init() {
 	clusterCmd.AddCommand(clusterRemoteCmd)
 	clusterRemoteCmd.SilenceErrors = clusterRemoteCmd.Parent().SilenceErrors
+	clusterRemoteCmd.SilenceUsage = clusterRemoteCmd.Parent().SilenceUsage
 
 	clusterRemoteCmd.Flags().StringSlice(
 		clusterRemote.KeyClusterRemoteHosts(),

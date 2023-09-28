@@ -36,6 +36,7 @@ var (
 func init() {
 	fluxCmd.AddCommand(fluxBootstrapCmd)
 	fluxBootstrapCmd.SilenceErrors = fluxBootstrapCmd.Parent().SilenceErrors
+	fluxBootstrapCmd.SilenceUsage = fluxBootstrapCmd.Parent().SilenceUsage
 
 	fluxBootstrapCmd.Flags().StringP(
 		fluxBootstrap.KeyFluxBootstrapPath(),

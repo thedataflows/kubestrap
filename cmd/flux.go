@@ -33,6 +33,7 @@ var (
 func init() {
 	rootCmd.AddCommand(fluxCmd)
 	fluxCmd.SilenceErrors = fluxCmd.Parent().SilenceErrors
+	fluxCmd.SilenceUsage = fluxCmd.Parent().SilenceUsage
 
 	fluxCmd.PersistentFlags().StringP(
 		flux.KeyFluxContext(),

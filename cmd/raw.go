@@ -39,6 +39,7 @@ var (
 func init() {
 	rootCmd.AddCommand(rawCmd)
 	rawCmd.SilenceErrors = rawCmd.Parent().SilenceErrors
+	rawCmd.SilenceUsage = rawCmd.Parent().SilenceUsage
 
 	rawCmd.Flags().DurationP(
 		raw.KeyTimeout(),
@@ -62,8 +63,6 @@ func init() {
 
 // RunRawCommand unmarshal commands and executes with provided arguments
 func RunRawCommand(cmd *cobra.Command, args []string) error {
-	cmd.SilenceUsage = true
-
 	var commands []kubestrap.RawCommand
 	if err := viper.UnmarshalKey(
 		config.PrefixKey(cmd, raw.KeyRawUtilities()),

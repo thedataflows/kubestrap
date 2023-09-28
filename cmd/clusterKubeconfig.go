@@ -33,6 +33,7 @@ var (
 func init() {
 	clusterCmd.AddCommand(clusterKubeconfigCmd)
 	clusterKubeconfigCmd.SilenceErrors = clusterKubeconfigCmd.Parent().SilenceErrors
+	clusterKubeconfigCmd.SilenceUsage = clusterKubeconfigCmd.Parent().SilenceUsage
 
 	// Bind flags
 	config.ViperBindPFlagSet(clusterKubeconfigCmd, nil)
@@ -42,8 +43,6 @@ func init() {
 
 // RunClusterKubeconfigCommand runs a command on the cluster
 func RunClusterKubeconfigCommand(cmd *cobra.Command, args []string) error {
-	cmd.SilenceUsage = true
-
 	if err := clusterKubeconfig.CheckRequiredFlags(); err != nil {
 		return err
 	}
