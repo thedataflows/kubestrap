@@ -66,7 +66,7 @@ func RunClusterBootstrapCommand(cmd *cobra.Command, args []string) error {
 				"--cluster-name",
 				clusterBootstrap.parent.GetClusterContext(),
 				"--key-path",
-				"cluster.sshkey.enc.pub",
+				"cluster.sshkey.pub",
 				"root@10.0.0.1:@22",
 			},
 		)
@@ -86,7 +86,7 @@ func RunClusterBootstrapCommand(cmd *cobra.Command, args []string) error {
 		log.Warnf("Cluster file already exists: %s", clusterFile)
 	}
 
-	sshKey := clusterBootstrapPath + "/cluster.sshkey.enc"
+	sshKey := clusterBootstrapPath + "/cluster.sshkey"
 	if !file.IsAccessible(sshKey) {
 		config.ViperSet(secretsCmd, secrets.KeySecretsContext(), clusterBootstrap.parent.GetClusterContext())
 		if err := RunBootstrapSecretsCommand(

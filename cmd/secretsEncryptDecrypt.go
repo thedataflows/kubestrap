@@ -196,7 +196,7 @@ func (s *SecretsEncryptDecrypt) KeyPrivateKeyPath() string {
 }
 
 func (s *SecretsEncryptDecrypt) DefaultPrivateKeyPath() string {
-	return "secrets/" + defaults.Undefined + ".age.enc"
+	return "secrets/" + defaults.Undefined + ".age"
 }
 
 func (s *SecretsEncryptDecrypt) GetPrivateKeyPath() string {

@@ -71,7 +71,7 @@ func init() {
 	secretsBootstrapCmd.Flags().String(
 		secretsBootstrap.KeyPublicKeyPath(),
 		secretsBootstrap.DefaultPublicKeyPath(),
-		"Public key path",
+		"Public key path. Can have multiple keys separated by new lines",
 	)
 
 	secretsBootstrapCmd.Flags().Bool(
@@ -211,7 +211,7 @@ func (s *SecretsBootstrap) PatchSopsConfig() error {
 	pubKeys := strings.Split(string(pubKeysData), "\n")
 	filteredPubKeys := make([]string, 0, len(pubKeys))
 	for _, pk := range pubKeys {
-		pk = strings.Trim(pk, " \t")
+		pk = strings.TrimSpace(pk)
 		if len(pk) > 0 {
 			filteredPubKeys = append(filteredPubKeys, "\""+pk+"\"")
 		}
@@ -398,7 +398,7 @@ func (s *SecretsBootstrap) KeyPrivateKeyPath() string {
 }
 
 func (s *SecretsBootstrap) DefaultPrivateKeyPath() string {
-	return "secrets/" + defaults.Undefined + ".age.enc"
+	return "secrets/" + defaults.Undefined + ".age"
 }
 
 func (s *SecretsBootstrap) GetPrivateKeyPath() string {

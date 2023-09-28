@@ -7,5 +7,5 @@ const (
 	Linux                        = "linux"
 	Darwin                       = "darwin"
 	DefaultConfigName            = "kubestrap-defaults"
-	DefaultClusterSshKeyFileName = "cluster.sshkey.enc"
+	DefaultClusterSshKeyFileName = "cluster.sshkey"
 )
