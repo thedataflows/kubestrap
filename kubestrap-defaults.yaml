@@ -3,7 +3,7 @@ raw:
   # timeout: 1m0s
   utilities:
     - name: yq
-      release: 4.35.1
+      release: 4.35.2
       url:
         windows: https://github.com/mikefarah/yq/releases/download/v{{release}}/{{name}}_{{os}}_{{arch}}.exe
         linux: &linux https://github.com/mikefarah/yq/releases/download/v{{release}}/{{name}}_{{os}}_{{arch}}
@@ -17,7 +17,7 @@ raw:
         darwin: *linux
       version-command: version --client=true -o=yaml
     - name: k0s
-      release: v1.27.5+k0s.0
+      release: v1.27.6+k0s.0
       url:
         windows: https://github.com/k0sproject/k0s/releases/download/{{release}}/{{name}}-{{release}}-{{arch}}.exe
         linux: https://github.com/k0sproject/k0s/releases/download/{{release}}/{{name}}-{{release}}-{{arch}}
@@ -29,7 +29,7 @@ raw:
         linux: &linux https://github.com/k0sproject/k0sctl/releases/download/{{release}}/{{name}}-{{os}}-x64
         darwin: *linux
     - name: flux
-      release: 2.1.0
+      release: 2.1.1
       url:
         windows: https://github.com/fluxcd/flux2/releases/download/v{{release}}/{{name}}_{{release}}_{{os}}_{{arch}}.zip
         linux: &linux https://github.com/fluxcd/flux2/releases/download/v{{release}}/{{name}}_{{release}}_{{os}}_{{arch}}.tar.gz
@@ -47,14 +47,14 @@ raw:
       extract:
         pattern: age/age.*
     - name: sops
-      release: 3.7.3
+      release: 3.8.0
       url:
         windows: https://github.com/mozilla/sops/releases/download/v{{release}}/{{name}}-v{{release}}.exe
         linux: &linux https://github.com/mozilla/sops/releases/download/v{{release}}/{{name}}-v{{release}}.{{os}}.{{arch}}
         darwin: *linux
       version-command: --version
     - name: velero
-      release: v1.11.1
+      release: v1.12.0
       url:
         windows: &windows https://github.com/vmware-tanzu/velero/releases/download/{{release}}/{{name}}-{{release}}-{{os}}-{{arch}}.tar.gz
         linux: *windows
