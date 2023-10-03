@@ -73,13 +73,15 @@ func RunProcess(exePath string, args []string, timeout time.Duration, buffered b
 	}()
 
 	// Stop command after specified timeout
-	go func() {
-		<-time.After(timeout)
-		if !currentCmd.Status().Complete {
-			err := currentCmd.Stop()
-			log.Errorf("[%s] timeout running command after %v. Error: %v", exeName, timeout, err)
-		}
-	}()
+	if timeout > 0 {
+		go func() {
+			<-time.After(timeout)
+			if !currentCmd.Status().Complete {
+				err := currentCmd.Stop()
+				log.Errorf("[%s] timeout running command after %v. Error: %v", exeName, timeout, err)
+			}
+		}()
+	}
 
 	// Run and wait for Cmd to return
 	statusChan := <-currentCmd.StartWithStdin(os.Stdin)
