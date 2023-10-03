@@ -130,7 +130,7 @@ func RunClusterCommand(cmd *cobra.Command, args []string) error {
 	// TODO
 	// Check if sops-age secret exists
 	// Decrypt age private key
-	// log.Infof("Loading private key: %s", secretsEncryptDecrypt.GetPrivateKeyPath())
+	// log.Infof("loading private key: %s", secretsEncryptDecrypt.GetPrivateKeyPath())
 	// out, err = RunRawCommandCaptureStdout(
 	// 	rawCmd,
 	// 	[]string{
@@ -152,7 +152,6 @@ func RunClusterCommand(cmd *cobra.Command, args []string) error {
 
 	// Write sops-age secret
 	// Annotate sops-age secret
-
 
 	return nil
 }

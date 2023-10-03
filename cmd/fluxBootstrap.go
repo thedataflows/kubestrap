@@ -99,7 +99,7 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("Patching %s", kustomizationFilePath)
+	log.Infof("patching %s", kustomizationFilePath)
 	k, err := merge2.Merge(
 		pData,
 		kData,
@@ -148,7 +148,7 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 	// if err != nil {
 	// 	return fmt.Errorf("error committing: %v", err)
 	// }
-	// log.Infof("Committed %v", hash)
+	// log.Infof("committed %v", hash)
 	// if err := r.Push(&git.PushOptions{}); err != nil {
 	// 	return fmt.Errorf("error pushing: %v", err)
 	// }

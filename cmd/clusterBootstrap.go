@@ -84,7 +84,7 @@ func RunClusterBootstrapCommand(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	} else {
-		log.Warnf("Cluster file already exists: %s", clusterFile)
+		log.Warnf("cluster file already exists: %s", clusterFile)
 	}
 
 	sshKey := clusterBootstrapPath + "/cluster.sshkey"

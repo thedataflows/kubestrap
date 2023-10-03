@@ -201,7 +201,7 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 // PatchSopsConfig patches sops config file with age public key
 func (s *SecretsBootstrap) PatchSopsConfig() error {
 	sopsConfigPath := s.parent.GetSopsConfig()
-	log.Infof("Patching sops config: %s", sopsConfigPath)
+	log.Infof("patching sops config: %s", sopsConfigPath)
 	if !file.IsAccessible(sopsConfigPath) {
 		return fmt.Errorf("'%s' is not accessible", sopsConfigPath)
 	}
@@ -263,7 +263,7 @@ func (s *SecretsBootstrap) GenerateSshKeys(keyBaseFileName string) error {
 	); err != nil {
 		return fmt.Errorf("error writing private key: %s", err)
 	}
-	log.Infof("Wrote: %s", privateKeyFile)
+	log.Infof("wrote: %s", privateKeyFile)
 
 	log.Infof("SSH Public key: %s", sshPubKey[:len(sshPubKey)-1])
 	publicKeyFile := privateKeyFile + ".pub"
@@ -274,7 +274,7 @@ func (s *SecretsBootstrap) GenerateSshKeys(keyBaseFileName string) error {
 	); err != nil {
 		return fmt.Errorf("error writing public key: %s", err)
 	}
-	log.Infof("Wrote: %s", publicKeyFile)
+	log.Infof("wrote: %s", publicKeyFile)
 
 	return nil
 }
