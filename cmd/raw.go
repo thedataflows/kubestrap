@@ -85,10 +85,10 @@ func RunRawCommand(cmd *cobra.Command, args []string) error {
 	}
 	for _, c := range commands {
 		if c.Name == args[0] || slices.Contains(c.Additional, args[0]) {
-			timeout := raw.GetTimeout()
+			timeout := raw.Timeout()
 			log.Debugf("execution timeout: %s", timeout)
 			c.Command = args
-			status, err := c.ExecuteCommand(timeout, raw.GetBufferedOutput())
+			status, err := c.ExecuteCommand(timeout, raw.BufferedOutput())
 			if err != nil {
 				return fmt.Errorf("error running '%s': %v", c.Command, err)
 			}
@@ -117,7 +117,7 @@ func RunRawCommandCaptureStdout(cmd *cobra.Command, args []string) (string, erro
 	}
 
 	// Run the command
-	currentBufferedOutput := raw.GetBufferedOutput()
+	currentBufferedOutput := raw.BufferedOutput()
 	raw.SetBufferedOutput(true)
 	rawErr := RunRawCommand(cmd, args)
 	raw.SetBufferedOutput(currentBufferedOutput)
@@ -151,7 +151,7 @@ func (r *Raw) DefaultTimeout() time.Duration {
 	return d
 }
 
-func (r *Raw) GetTimeout() time.Duration {
+func (r *Raw) Timeout() time.Duration {
 	return config.ViperGetDuration(r.cmd, r.KeyTimeout())
 }
 
@@ -167,7 +167,7 @@ func (r *Raw) DefaultBufferedOutput() bool {
 	return false
 }
 
-func (r *Raw) GetBufferedOutput() bool {
+func (r *Raw) BufferedOutput() bool {
 	return config.ViperGetBool(r.cmd, r.KeyBufferedOutput())
 }
 

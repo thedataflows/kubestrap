@@ -47,7 +47,7 @@ func RunClusterKubeconfigCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	clusterBootstrapPath := clusterBootstrap.parent.GetClusterBootstrapPath()
+	clusterBootstrapPath := clusterBootstrap.parent.ClusterBootstrapPath()
 
 	currentDir := file.WorkingDirectory()
 	if err := os.Chdir(clusterBootstrapPath); err != nil {
@@ -55,7 +55,7 @@ func RunClusterKubeconfigCommand(cmd *cobra.Command, args []string) error {
 	}
 	defer func() { _ = os.Chdir(currentDir) }()
 
-	config.ViperSet(rawCmd, clusterBootstrap.parent.KeyTimeout(), clusterBootstrap.parent.GetTimeout().String())
+	config.ViperSet(rawCmd, clusterBootstrap.parent.KeyTimeout(), clusterBootstrap.parent.Timeout().String())
 	out, err := RunRawCommandCaptureStdout(
 		rawCmd,
 		append(

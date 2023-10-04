@@ -40,7 +40,7 @@ var (
 		Aliases: []string{"b"},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			secretsBootstrap.SetCmd(cmd)
-			keySize := secretsBootstrap.GetSshKeySize()
+			keySize := secretsBootstrap.SshKeySize()
 			if !slices.Contains[[]int, int](sshKeySizes, keySize) {
 				return fmt.Errorf("invalid SSH key size: %d. Valid: %v", keySize, sshKeySizes)
 			}
@@ -118,14 +118,14 @@ func RunBootstrapSecretsCommand(cmd *cobra.Command, args []string) error {
 
 // GenerateAgeKeys generates age public and private key pair and writes them to files
 func (s *SecretsBootstrap) GenerateAgeKeys() error {
-	if err := os.MkdirAll(s.parent.GetSecretsDir(), 0700); err != nil {
+	if err := os.MkdirAll(s.parent.SecretsDir(), 0700); err != nil {
 		return err
 	}
 
-	privateKeyPath := s.GetPrivateKeyPath()
+	privateKeyPath := s.PrivateKeyPath()
 	plainKeyFile := privateKeyPath + ".plain"
 	encrypt := false
-	if !file.IsAccessible(privateKeyPath) || s.GetForce() {
+	if !file.IsAccessible(privateKeyPath) || s.Force() {
 		// Create the private key
 		if err := RunRawCommand(
 			rawCmd,
@@ -173,7 +173,7 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 		}
 	}
 
-	if !file.IsAccessible(s.GetPublicKeyPath()) || s.GetForce() {
+	if !file.IsAccessible(s.PublicKeyPath()) || s.Force() {
 		// try to create the public key
 		if err := RunRawCommand(
 			rawCmd,
@@ -181,7 +181,7 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 				"age-keygen",
 				"-y",
 				"--output",
-				s.GetPublicKeyPath(),
+				s.PublicKeyPath(),
 				plainKeyFile,
 			},
 		); err != nil {
@@ -200,12 +200,12 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 
 // PatchSopsConfig patches sops config file with age public key
 func (s *SecretsBootstrap) PatchSopsConfig() error {
-	sopsConfigPath := s.parent.GetSopsConfig()
+	sopsConfigPath := s.parent.SopsConfig()
 	log.Infof("patching sops config: %s", sopsConfigPath)
 	if !file.IsAccessible(sopsConfigPath) {
 		return fmt.Errorf("'%s' is not accessible", sopsConfigPath)
 	}
-	pubKeysData, err := os.ReadFile(s.GetPublicKeyPath())
+	pubKeysData, err := os.ReadFile(s.PublicKeyPath())
 	if err != nil {
 		return err
 	}
@@ -218,7 +218,7 @@ func (s *SecretsBootstrap) PatchSopsConfig() error {
 		}
 	}
 	if len(filteredPubKeys) == 0 {
-		return fmt.Errorf("'%s' contains empty lines", s.GetPublicKeyPath())
+		return fmt.Errorf("'%s' contains empty lines", s.PublicKeyPath())
 	}
 	const yqExpr = `.creation_rules[].key_groups[].age`
 	if err := RunRawCommand(
@@ -242,16 +242,16 @@ func (s *SecretsBootstrap) GenerateSshKeys(keyBaseFileName string) error {
 		return fmt.Errorf("key base filename is required")
 	}
 
-	clusterBootstrapPath := s.parent.GetClusterBootstrapPath()
+	clusterBootstrapPath := s.parent.ClusterBootstrapPath()
 	if err := os.MkdirAll(clusterBootstrapPath, 0700); err != nil {
 		return err
 	}
 
 	privateKeyFile := clusterBootstrapPath + "/" + keyBaseFileName
-	if file.IsFile(privateKeyFile) && !s.GetForce() {
+	if file.IsFile(privateKeyFile) && !s.Force() {
 		return fmt.Errorf("'%s' exists. Use --force flag to override", privateKeyFile)
 	}
-	sshPubKey, sshPrivKey, err := GenerateECDSAKeys(s.GetSshKeySize())
+	sshPubKey, sshPrivKey, err := GenerateECDSAKeys(s.SshKeySize())
 	if err != nil {
 		return fmt.Errorf("failed: %s. Perhaps try with ssh-keygen?", err)
 	}
@@ -390,7 +390,7 @@ func (s *SecretsBootstrap) DefaultNamespace() string {
 	return "flux-system"
 }
 
-func (s *SecretsBootstrap) GetNamespace() string {
+func (s *SecretsBootstrap) Namespace() string {
 	return config.ViperGetString(s.cmd, s.KeyNamespace())
 }
 
@@ -402,10 +402,10 @@ func (s *SecretsBootstrap) DefaultPrivateKeyPath() string {
 	return "secrets/" + defaults.Undefined + ".age"
 }
 
-func (s *SecretsBootstrap) GetPrivateKeyPath() string {
+func (s *SecretsBootstrap) PrivateKeyPath() string {
 	privateKeyPath := config.ViperGetString(s.cmd, s.KeyPrivateKeyPath())
 	if privateKeyPath == s.DefaultPrivateKeyPath() {
-		privateKeyPath = s.parent.GetSecretsDir() + "/" + s.parent.GetSecretsContext() + ".age"
+		privateKeyPath = s.parent.SecretsDir() + "/" + s.parent.SecretsContext() + ".age"
 	}
 	return privateKeyPath
 }
@@ -418,10 +418,10 @@ func (s *SecretsBootstrap) DefaultPublicKeyPath() string {
 	return s.DefaultPrivateKeyPath() + ".pub"
 }
 
-func (s *SecretsBootstrap) GetPublicKeyPath() string {
+func (s *SecretsBootstrap) PublicKeyPath() string {
 	publicKeyPath := config.ViperGetString(s.cmd, s.KeyPublicKeyPath())
 	if publicKeyPath == s.DefaultPublicKeyPath() {
-		publicKeyPath = s.GetPrivateKeyPath() + ".pub"
+		publicKeyPath = s.PrivateKeyPath() + ".pub"
 	}
 	return publicKeyPath
 }
@@ -434,7 +434,7 @@ func (s *SecretsBootstrap) DefaultForce() bool {
 	return false
 }
 
-func (s *SecretsBootstrap) GetForce() bool {
+func (s *SecretsBootstrap) Force() bool {
 	return config.ViperGetBool(s.cmd, s.KeyForce())
 }
 
@@ -446,6 +446,6 @@ func (s *SecretsBootstrap) DefaultSshKeySize() int {
 	return 256
 }
 
-func (s *SecretsBootstrap) GetSshKeySize() int {
+func (s *SecretsBootstrap) SshKeySize() int {
 	return config.ViperGetInt(s.cmd, s.KeySshKeySize())
 }

@@ -76,16 +76,16 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		newArgs = append(newArgs, args...)
 	} else {
-		newArgs = append(newArgs, fmt.Sprintf("--%s=%s", fluxBootstrap.parent.KeyFluxNamespace(), fluxBootstrap.parent.GetFluxNamespace()))
+		newArgs = append(newArgs, fmt.Sprintf("--%s=%s", fluxBootstrap.parent.KeyFluxNamespace(), fluxBootstrap.parent.FluxNamespace()))
 		newArgs = config.AppendStringSplitArgs(cmd, newArgs, fluxBootstrap.KeyFluxBootstrapCommand(), "")
 	}
 
-	config.ViperSet(rawCmd, fluxBootstrap.parent.KeyTimeout(), fluxBootstrap.parent.GetTimeout().String())
+	config.ViperSet(rawCmd, fluxBootstrap.parent.KeyTimeout(), fluxBootstrap.parent.Timeout().String())
 	if err := RunRawCommand(rawCmd, newArgs); err != nil {
 		return err
 	}
 
-	kustomizationFilePath, err := filepath.Abs(fluxBootstrap.GetFluxBootstrapPath() + "/kustomization.yaml")
+	kustomizationFilePath, err := filepath.Abs(fluxBootstrap.FluxBootstrapPath() + "/kustomization.yaml")
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	pData, err := yaml.ReadFile(fluxBootstrap.GetFluxBootstrapPatchesFile())
+	pData, err := yaml.ReadFile(fluxBootstrap.FluxBootstrapPatchesFile())
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 
 	// TODO repair this, it corrupts the git repo
 	// Git commit and push the patched kustomization
-	// r, err := git.PlainOpen(fluxBootstrap.parent.GetProjectRoot())
+	// r, err := git.PlainOpen(fluxBootstrap.parent.ProjectRoot())
 	// if err != nil {
 	// 	return fmt.Errorf("error opening git repository: %v", err)
 	// }
@@ -131,7 +131,7 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 	// 	return nil
 	// }
 	// // file relative to the git root
-	// rootDirAbs, err := filepath.Abs(fluxBootstrap.parent.GetProjectRoot())
+	// rootDirAbs, err := filepath.Abs(fluxBootstrap.parent.ProjectRoot())
 	// if err != nil {
 	// 	return err
 	// }
@@ -203,14 +203,14 @@ func (f *FluxBootstrap) DefaultFluxBootstrapPath() string {
 	)
 }
 
-func (f *FluxBootstrap) GetFluxBootstrapPath() string {
+func (f *FluxBootstrap) FluxBootstrapPath() string {
 	fluxBootstrapPath := config.ViperGetString(f.cmd, f.KeyFluxBootstrapPath())
 	if fluxBootstrapPath == f.DefaultFluxBootstrapPath() {
 		fluxBootstrapPath = fmt.Sprintf(
 			"%s/kubernetes/cluster-%s/%s",
-			f.parent.GetProjectRoot(),
-			f.parent.GetFluxContext(),
-			f.parent.GetFluxNamespace(),
+			f.parent.ProjectRoot(),
+			f.parent.FluxContext(),
+			f.parent.FluxNamespace(),
 		)
 	}
 	return fluxBootstrapPath
@@ -224,7 +224,7 @@ func (f *FluxBootstrap) DefaultFluxBootstrapCommand() string {
 	return ""
 }
 
-func (f *FluxBootstrap) GetFluxBootstrapCommand() string {
+func (f *FluxBootstrap) FluxBootstrapCommand() string {
 	return config.ViperGetString(f.cmd, f.KeyFluxBootstrapCommand())
 }
 
@@ -236,6 +236,6 @@ func (f *FluxBootstrap) DefaultBootstrapPatchesFile() string {
 	return "flux-patches.yaml"
 }
 
-func (f *FluxBootstrap) GetFluxBootstrapPatchesFile() string {
+func (f *FluxBootstrap) FluxBootstrapPatchesFile() string {
 	return config.ViperGetString(f.cmd, f.KeyFluxBootstrapPatchesFile())
 }

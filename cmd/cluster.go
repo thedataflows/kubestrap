@@ -74,7 +74,7 @@ func RunClusterCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	clusterBootstrapPath := mycluster.GetClusterBootstrapPath()
+	clusterBootstrapPath := mycluster.ClusterBootstrapPath()
 	clusterBootstrapOsTmpPath := clusterBootstrapPath + "/../os/tmp"
 
 	if err := os.MkdirAll(clusterBootstrapOsTmpPath, 0700); err != nil {
@@ -110,7 +110,7 @@ func RunClusterCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	// Run k0sctl apply
-	config.ViperSet(rawCmd, mycluster.KeyTimeout(), mycluster.GetTimeout().String())
+	config.ViperSet(rawCmd, mycluster.KeyTimeout(), mycluster.Timeout().String())
 	if err := RunRawCommand(
 		rawCmd,
 		append(
@@ -130,13 +130,13 @@ func RunClusterCommand(cmd *cobra.Command, args []string) error {
 	// TODO
 	// Check if sops-age secret exists
 	// Decrypt age private key
-	// log.Infof("loading private key: %s", secretsEncryptDecrypt.GetPrivateKeyPath())
+	// log.Infof("loading private key: %s", secretsEncryptDecrypt.PrivateKeyPath())
 	// out, err = RunRawCommandCaptureStdout(
 	// 	rawCmd,
 	// 	[]string{
 	// 		"age",
 	// 		"--decrypt",
-	// 		secretsEncryptDecrypt.GetPrivateKeyPath(),
+	// 		secretsEncryptDecrypt.PrivateKeyPath(),
 	// 	},
 	// )
 	// if err != nil {
@@ -180,7 +180,7 @@ func (c *Cluster) DefaultClusterContext() string {
 	return defaults.Undefined
 }
 
-func (c *Cluster) GetClusterContext() string {
+func (c *Cluster) ClusterContext() string {
 	return config.ViperGetString(c.cmd, c.KeyClusterContext())
 }
 
@@ -192,13 +192,13 @@ func (c *Cluster) DefaultClusterBootstrapPath() string {
 	return fmt.Sprintf("bootstrap/cluster-%s", c.DefaultClusterContext())
 }
 
-func (c *Cluster) GetClusterBootstrapPath() string {
+func (c *Cluster) ClusterBootstrapPath() string {
 	clusterBootstrapPath := config.ViperGetString(c.cmd, c.KeyClusterBootstrapPath())
 	if clusterBootstrapPath == c.DefaultClusterBootstrapPath() {
 		clusterBootstrapPath = fmt.Sprintf(
 			"%s/bootstrap/cluster-%s",
-			c.parent.GetProjectRoot(),
-			c.GetClusterContext(),
+			c.parent.ProjectRoot(),
+			c.ClusterContext(),
 		)
 	}
 	return clusterBootstrapPath
@@ -213,6 +213,6 @@ func (c *Cluster) DefaultTimeout() time.Duration {
 	return d
 }
 
-func (c *Cluster) GetTimeout() time.Duration {
+func (c *Cluster) Timeout() time.Duration {
 	return config.ViperGetDuration(c.cmd, c.KeyTimeout())
 }

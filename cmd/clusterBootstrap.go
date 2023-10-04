@@ -51,7 +51,7 @@ func RunClusterBootstrapCommand(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	clusterBootstrapPath := clusterBootstrap.parent.GetClusterBootstrapPath()
+	clusterBootstrapPath := clusterBootstrap.parent.ClusterBootstrapPath()
 	if err := os.MkdirAll(clusterBootstrapPath, 0700); err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func RunClusterBootstrapCommand(cmd *cobra.Command, args []string) error {
 				"init",
 				"--k0s",
 				"--cluster-name",
-				clusterBootstrap.parent.GetClusterContext(),
+				clusterBootstrap.parent.ClusterContext(),
 				"--key-path",
 				"cluster.sshkey.pub",
 				"root@10.0.0.1:@22",
@@ -89,7 +89,7 @@ func RunClusterBootstrapCommand(cmd *cobra.Command, args []string) error {
 
 	sshKey := clusterBootstrapPath + "/cluster.sshkey"
 	if !file.IsAccessible(sshKey) {
-		config.ViperSet(secretsCmd, secrets.KeySecretsContext(), clusterBootstrap.parent.GetClusterContext())
+		config.ViperSet(secretsCmd, secrets.KeySecretsContext(), clusterBootstrap.parent.ClusterContext())
 		if err := RunBootstrapSecretsCommand(
 			secretsBootstrapCmd,
 			args,

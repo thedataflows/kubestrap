@@ -110,6 +110,6 @@ func (r *Root) DefaultProjectRoot() string {
 	return file.WorkingDirectory()
 }
 
-func (r *Root) GetProjectRoot() string {
+func (r *Root) ProjectRoot() string {
 	return config.ViperGetString(r.cmd, r.KeyProjectRoot())
 }

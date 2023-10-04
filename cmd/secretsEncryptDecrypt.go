@@ -90,13 +90,13 @@ func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	if cmd.Use == "decrypt" && os.Getenv("SOPS_AGE_KEY") == "" {
-		log.Infof("loading private key: %s", secretsEncryptDecrypt.GetPrivateKeyPath())
+		log.Infof("loading private key: %s", secretsEncryptDecrypt.PrivateKeyPath())
 		out, err := RunRawCommandCaptureStdout(
 			rawCmd,
 			[]string{
 				"age",
 				"--decrypt",
-				secretsEncryptDecrypt.GetPrivateKeyPath(),
+				secretsEncryptDecrypt.PrivateKeyPath(),
 			},
 		)
 		if err != nil {
@@ -127,10 +127,10 @@ func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 			log.Infof("%sing: %s", cmd.Use, result.FilePath)
 			newArgs := []string{"sops", "--" + cmd.Use}
 			if cmd.Use == "encrypt" {
-				newArgs = append(newArgs, "--config", secretsEncryptDecrypt.parent.GetSopsConfig())
+				newArgs = append(newArgs, "--config", secretsEncryptDecrypt.parent.SopsConfig())
 			}
-			newArgs = append(newArgs, secretsEncryptDecrypt.GetInplace(), result.FilePath)
-			config.ViperSet(rawCmd, raw.KeyBufferedOutput(), fmt.Sprintf("%v", secretsEncryptDecrypt.GetInplace() == ""))
+			newArgs = append(newArgs, secretsEncryptDecrypt.Inplace(), result.FilePath)
+			config.ViperSet(rawCmd, raw.KeyBufferedOutput(), fmt.Sprintf("%v", secretsEncryptDecrypt.Inplace() == ""))
 			if err := RunRawCommand(rawCmd, newArgs); err != nil {
 				log.Error(err)
 				continue
@@ -156,7 +156,7 @@ func findFiles(pattern string) *search.Results {
 		ApplyToDirs:  false,
 	}
 
-	return search.FindFile(ctx, secretsEncryptDecrypt.parent.GetKubeClusterDir(), fileFilter, finder, runtime.NumCPU())
+	return search.FindFile(ctx, secretsEncryptDecrypt.parent.KubeClusterDir(), fileFilter, finder, runtime.NumCPU())
 }
 
 func NewSecretsEncryptDecrypt(parent *Secrets) *SecretsEncryptDecrypt {
@@ -185,7 +185,7 @@ func (s *SecretsEncryptDecrypt) DefaultInplace() bool {
 	return true
 }
 
-func (s *SecretsEncryptDecrypt) GetInplace() string {
+func (s *SecretsEncryptDecrypt) Inplace() string {
 	if config.ViperGetBool(s.cmd, s.KeyInplace()) {
 		return "--in-place"
 	}
@@ -200,14 +200,14 @@ func (s *SecretsEncryptDecrypt) DefaultPrivateKeyPath() string {
 	return "secrets/" + defaults.Undefined + ".age"
 }
 
-func (s *SecretsEncryptDecrypt) GetPrivateKeyPath() string {
+func (s *SecretsEncryptDecrypt) PrivateKeyPath() string {
 	privateKeyPath := config.ViperGetString(s.cmd, s.KeyPrivateKeyPath())
 	if privateKeyPath == s.DefaultPrivateKeyPath() {
-		privateKeyPath = s.parent.GetSecretsDir() + "/" + s.parent.GetSecretsContext() + ".age"
+		privateKeyPath = s.parent.SecretsDir() + "/" + s.parent.SecretsContext() + ".age"
 	}
 	return privateKeyPath
 }
 
-func (r *SecretsEncryptDecrypt) GetProjectRoot() string {
-	return r.parent.GetProjectRoot()
+func (r *SecretsEncryptDecrypt) ProjectRoot() string {
+	return r.parent.ProjectRoot()
 }

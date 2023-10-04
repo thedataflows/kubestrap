@@ -74,7 +74,7 @@ func RunFluxCommand(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		newArgs = append(newArgs, args...)
 	} else {
-		newArgs = append(newArgs, fmt.Sprintf("--%s=%s", flux.KeyFluxNamespace(), flux.GetFluxNamespace()))
+		newArgs = append(newArgs, fmt.Sprintf("--%s=%s", flux.KeyFluxNamespace(), flux.FluxNamespace()))
 		newArgs = config.AppendStringSplitArgs(cmd, newArgs, "", "")
 	}
 	return RunRawCommand(rawCmd, newArgs)
@@ -103,7 +103,7 @@ func (f *Flux) DefaultFluxContext() string {
 	return defaults.Undefined
 }
 
-func (f *Flux) GetFluxContext() string {
+func (f *Flux) FluxContext() string {
 	return config.ViperGetString(f.cmd, f.KeyFluxContext())
 }
 
@@ -115,12 +115,12 @@ func (f *Flux) DefaultFluxNamespace() string {
 	return "flux-system"
 }
 
-func (f *Flux) GetFluxNamespace() string {
+func (f *Flux) FluxNamespace() string {
 	return config.ViperGetString(f.cmd, f.KeyFluxNamespace())
 }
 
-func (f *Flux) GetProjectRoot() string {
-	return f.parent.GetProjectRoot()
+func (f *Flux) ProjectRoot() string {
+	return f.parent.ProjectRoot()
 }
 
 func (f *Flux) KeyTimeout() string {
@@ -132,6 +132,6 @@ func (f *Flux) DefaultTimeout() time.Duration {
 	return d
 }
 
-func (f *Flux) GetTimeout() time.Duration {
+func (f *Flux) Timeout() time.Duration {
 	return config.ViperGetDuration(f.cmd, f.KeyTimeout())
 }

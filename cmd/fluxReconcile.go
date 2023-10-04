@@ -51,7 +51,7 @@ func RunFluxReconcileCommand(cmd *cobra.Command, args []string) error {
 	newArgs := []string{
 		cmd.Parent().Use,
 		cmd.Use,
-		fmt.Sprintf("--%s=%s", fluxReconcile.parent.KeyFluxContext(), fluxReconcile.parent.GetFluxContext()),
+		fmt.Sprintf("--%s=%s", fluxReconcile.parent.KeyFluxContext(), fluxReconcile.parent.FluxContext()),
 	}
 	if len(args) > 0 {
 		newArgs = append(newArgs, args...)

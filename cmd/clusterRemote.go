@@ -64,10 +64,10 @@ func RunClusterRemoteCommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("command to execute is not specified")
 	}
 
-	clusterRemoteHosts := clusterRemote.GetClusterRemoteHosts()
+	clusterRemoteHosts := clusterRemote.ClusterRemoteHosts()
 
 	// Load cluster spec
-	cl, err := kubestrap.NewK0sCluster(clusterRemote.parent.GetClusterContext(), clusterRemote.parent.GetClusterBootstrapPath())
+	cl, err := kubestrap.NewK0sCluster(clusterRemote.parent.ClusterContext(), clusterRemote.parent.ClusterBootstrapPath())
 	if err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func RunClusterRemoteCommand(cmd *cobra.Command, args []string) error {
 	)
 
 	currentDir := file.WorkingDirectory()
-	if err := os.Chdir(clusterRemote.parent.GetClusterBootstrapPath()); err != nil {
+	if err := os.Chdir(clusterRemote.parent.ClusterBootstrapPath()); err != nil {
 		return err
 	}
 	defer func() { _ = os.Chdir(currentDir) }()
@@ -134,6 +134,6 @@ func (c *ClusterRemote) DefaultClusterRemoteHosts() []string {
 	return []string{}
 }
 
-func (c *ClusterRemote) GetClusterRemoteHosts() []string {
+func (c *ClusterRemote) ClusterRemoteHosts() []string {
 	return config.ViperGetStringSlice(c.cmd, c.KeyClusterRemoteHosts())
 }

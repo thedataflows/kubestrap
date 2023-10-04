@@ -100,8 +100,8 @@ func (s *Secrets) KeySecretsContext() string {
 	return "context"
 }
 
-// GetSecretsContext returns SecretsContext
-func (s *Secrets) GetSecretsContext() string {
+// SecretsContext returns SecretsContext
+func (s *Secrets) SecretsContext() string {
 	return config.ViperGetString(s.cmd, s.KeySecretsContext())
 }
 
@@ -115,11 +115,11 @@ func (s *Secrets) DefaultSecretsDir() string {
 	return "secrets"
 }
 
-// GetSecretsDir returns SecretsDir
-func (s *Secrets) GetSecretsDir() string {
+// SecretsDir returns SecretsDir
+func (s *Secrets) SecretsDir() string {
 	return fmt.Sprintf(
 		"%s/%s",
-		s.GetProjectRoot(),
+		s.ProjectRoot(),
 		config.ViperGetString(s.cmd, s.KeySecretsDir()),
 	)
 }
@@ -132,20 +132,20 @@ func (s *Secrets) DefaultClusterBootstrapPath() string {
 	return fmt.Sprintf("bootstrap/cluster-%s", defaults.Undefined)
 }
 
-func (s *Secrets) GetClusterBootstrapPath() string {
+func (s *Secrets) ClusterBootstrapPath() string {
 	clusterPath := config.ViperGetString(s.cmd, s.KeyClusterBootstrapPath())
 	if clusterPath == s.DefaultClusterBootstrapPath() {
 		clusterPath = fmt.Sprintf(
 			"%s/bootstrap/cluster-%s",
-			s.GetProjectRoot(),
-			s.GetSecretsContext(),
+			s.ProjectRoot(),
+			s.SecretsContext(),
 		)
 	}
 	return clusterPath
 }
 
-func (s *Secrets) GetProjectRoot() string {
-	return s.parent.GetProjectRoot()
+func (s *Secrets) ProjectRoot() string {
+	return s.parent.ProjectRoot()
 }
 
 func (s *Secrets) KeySopsConfig() string {
@@ -156,10 +156,10 @@ func (s *Secrets) DefaultSopsConfig() string {
 	return s.DefaultKubeClusterDir() + "/.sops.yaml"
 }
 
-func (s *Secrets) GetSopsConfig() string {
+func (s *Secrets) SopsConfig() string {
 	secretsEncryptSopsConfig := config.ViperGetString(s.cmd, s.KeySopsConfig())
 	if secretsEncryptSopsConfig == s.DefaultSopsConfig() {
-		secretsEncryptSopsConfig = s.GetKubeClusterDir() + "/.sops.yaml"
+		secretsEncryptSopsConfig = s.KubeClusterDir() + "/.sops.yaml"
 	}
 	return secretsEncryptSopsConfig
 }
@@ -172,13 +172,13 @@ func (s *Secrets) DefaultKubeClusterDir() string {
 	return fmt.Sprintf("kubernetes/cluster-%s", defaults.Undefined)
 }
 
-func (s *Secrets) GetKubeClusterDir() string {
+func (s *Secrets) KubeClusterDir() string {
 	secretsEncryptKubeClusterDir := config.ViperGetString(s.cmd, s.KeyKubeClusterDir())
 	if secretsEncryptKubeClusterDir == s.DefaultKubeClusterDir() {
 		secretsEncryptKubeClusterDir = fmt.Sprintf(
 			"%s/kubernetes/cluster-%s",
-			s.GetProjectRoot(),
-			s.GetSecretsContext(),
+			s.ProjectRoot(),
+			s.SecretsContext(),
 		)
 	}
 	return secretsEncryptKubeClusterDir

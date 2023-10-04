@@ -81,13 +81,13 @@ func RunSecretsCopySshIdCommand(cmd *cobra.Command, args []string) error {
 
 	// Try to copy ssh identity to the cluster
 	// Load cluster spec
-	secretsContext := secretsCopySshId.parent.GetSecretsContext()
-	clusterBootstrapPath := secretsCopySshId.parent.GetClusterBootstrapPath()
+	secretsContext := secretsCopySshId.parent.SecretsContext()
+	clusterBootstrapPath := secretsCopySshId.parent.ClusterBootstrapPath()
 	cl, err := kubestrap.NewK0sCluster(secretsContext, clusterBootstrapPath)
 	if err != nil {
 		return err
 	}
-	filterHosts := secretsCopySshId.GetHosts()
+	filterHosts := secretsCopySshId.Hosts()
 	hosts := cl.GetClusterSpec().Spec.Hosts.Filter(
 		func(h *cluster.Host) bool {
 			for _, filterHost := range filterHosts {
@@ -100,7 +100,7 @@ func RunSecretsCopySshIdCommand(cmd *cobra.Command, args []string) error {
 	)
 
 	// read private key
-	privateKeyFile := secretsCopySshId.GetPrivateKeyFile()
+	privateKeyFile := secretsCopySshId.PrivateKeyFile()
 	identity, err := os.ReadFile(privateKeyFile)
 	if err != nil {
 		log.Errorf("error reading private key file %s: %v", privateKeyFile, err)
@@ -333,7 +333,7 @@ func (s *SecretsCopySshId) DefaultHosts() []string {
 	return []string{}
 }
 
-func (s *SecretsCopySshId) GetHosts() []string {
+func (s *SecretsCopySshId) Hosts() []string {
 	return config.ViperGetStringSlice(s.cmd, s.KeyHosts())
 }
 
@@ -345,10 +345,10 @@ func (s *SecretsCopySshId) DefaultPrivateKeyFile() string {
 	return fmt.Sprintf("bootstrap/cluster-%s/%s", defaults.Undefined, constants.DefaultClusterSshKeyFileName)
 }
 
-func (s *SecretsCopySshId) GetPrivateKeyFile() string {
+func (s *SecretsCopySshId) PrivateKeyFile() string {
 	privateKeyFile := config.ViperGetString(s.cmd, s.KeyPrivateKeyFile())
 	if privateKeyFile == s.DefaultPrivateKeyFile() {
-		privateKeyFile = s.parent.GetClusterBootstrapPath() + "/" + constants.DefaultClusterSshKeyFileName
+		privateKeyFile = s.parent.ClusterBootstrapPath() + "/" + constants.DefaultClusterSshKeyFileName
 	}
 	return privateKeyFile
 }
