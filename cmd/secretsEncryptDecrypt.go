@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -91,7 +90,7 @@ func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	if cmd.Use == "decrypt" && os.Getenv("SOPS_AGE_KEY") == "" {
-		log.Infof("Loading private key: %s", secretsEncryptDecrypt.GetPrivateKeyPath())
+		log.Infof("loading private key: %s", secretsEncryptDecrypt.GetPrivateKeyPath())
 		out, err := RunRawCommandCaptureStdout(
 			rawCmd,
 			[]string{
@@ -125,12 +124,13 @@ func RunSecretsEncryptDecryptCommand(cmd *cobra.Command, args []string) error {
 			if file.IsDirectory(result.FilePath) {
 				continue
 			}
-			log.Infof("%s%sing: %s", strings.ToUpper(cmd.Use[:1]), cmd.Use[1:], result.FilePath)
+			log.Infof("%sing: %s", cmd.Use, result.FilePath)
 			newArgs := []string{"sops", "--" + cmd.Use}
 			if cmd.Use == "encrypt" {
 				newArgs = append(newArgs, "--config", secretsEncryptDecrypt.parent.GetSopsConfig())
 			}
 			newArgs = append(newArgs, secretsEncryptDecrypt.GetInplace(), result.FilePath)
+			config.ViperSet(rawCmd, raw.KeyBufferedOutput(), fmt.Sprintf("%v", secretsEncryptDecrypt.GetInplace() == ""))
 			if err := RunRawCommand(rawCmd, newArgs); err != nil {
 				log.Error(err)
 				continue
