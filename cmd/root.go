@@ -42,7 +42,7 @@ var (
 	root = NewRoot()
 
 	configOpts, configOptsErr = config.NewOptions(
-		config.WithEnvPrefix(constants.ViperEnvPrefix),
+		config.WithEnvPrefix(constants.EnvPrefix),
 		config.WithConfigName(constants.DefaultConfigName),
 		config.WithUserConfigPaths(
 			[]string{
