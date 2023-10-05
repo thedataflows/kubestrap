@@ -60,3 +60,10 @@ raw:
         linux: *windows
         darwin: *windows
       version-command: version --client-only
+    - name: flarectl
+      release: 0.78.0
+      url:
+        windows: &windows https://github.com/cloudflare/cloudflare-go/releases/download/v{{release}}/{{name}}_{{release}}_{{os}}_{{arch}}.tar.gz
+        linux: *windows
+        darwin: *windows
+      version-command: --version
