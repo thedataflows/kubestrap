@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -213,6 +214,7 @@ func (opts *Options) setLogging() error {
 		jww.SetLogThreshold(jww.LevelDebug)
 		jww.SetStdoutThreshold(jww.LevelDebug)
 	}
+	jww.SetStdoutOutput(os.Stderr)
 
 	return nil
 }

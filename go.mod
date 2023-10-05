@@ -13,7 +13,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.23.8
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
-	github.com/thedataflows/go-commons v1.13.0
+	github.com/thedataflows/go-commons v1.14.0
 	golang.org/x/crypto v0.13.1-0.20230910182515-3f0842a46434
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 	golang.org/x/term v0.12.0

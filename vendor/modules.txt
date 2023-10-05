@@ -416,7 +416,7 @@ github.com/spf13/viper/internal/encoding/yaml
 # github.com/subosito/gotenv v1.4.2
 ## explicit; go 1.18
 github.com/subosito/gotenv
-# github.com/thedataflows/go-commons v1.13.0
+# github.com/thedataflows/go-commons v1.14.0
 ## explicit; go 1.21
 github.com/thedataflows/go-commons/pkg/config
 github.com/thedataflows/go-commons/pkg/defaults
