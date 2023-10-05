@@ -8,5 +8,5 @@ const (
 	Darwin                       = "darwin"
 	DefaultConfigName            = "kubestrap-defaults"
 	DefaultClusterSshKeyFileName = "cluster.sshkey"
-	DefaultSecretFilesPattern = `secret.*\.yaml`
+	DefaultSecretFilesPattern    = `secret.*\.yaml` // #nosec G101
 )
