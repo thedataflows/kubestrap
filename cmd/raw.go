@@ -23,49 +23,56 @@ type Raw struct {
 	parent *Root
 }
 
-// rawCmd represents the raw command
 var (
-	rawCmd = &cobra.Command{
-		Use:     "raw",
-		Short:   "Directly run one of the predefined utilities. To pass flags for the raw command, use --",
-		Long:    ``,
-		RunE:    RunRawCommand,
-		Aliases: []string{"r"},
-	}
-
 	raw = NewRaw(root)
 )
 
 func init() {
-	rootCmd.AddCommand(rawCmd)
-	rawCmd.SilenceErrors = rawCmd.Parent().SilenceErrors
-	rawCmd.SilenceUsage = rawCmd.Parent().SilenceUsage
 
-	rawCmd.Flags().DurationP(
-		raw.KeyTimeout(),
+}
+
+func NewRaw(parent *Root) *Raw {
+	r := &Raw{
+		parent: parent,
+	}
+
+	r.cmd = &cobra.Command{
+		Use:           "raw",
+		Short:         "Directly run one of the predefined utilities. To pass flags for the raw command, use --",
+		Long:          ``,
+		Aliases:       []string{"r"},
+		RunE:          r.RunRawCommand,
+		SilenceErrors: parent.Cmd().SilenceErrors,
+		SilenceUsage:  parent.Cmd().SilenceUsage,
+	}
+
+	parent.Cmd().AddCommand(r.cmd)
+
+	defaultTimeout, _ := time.ParseDuration("1m0s")
+	r.cmd.Flags().DurationP(
+		r.KeyTimeout(),
 		"t",
-		raw.DefaultTimeout(),
+		defaultTimeout,
 		"Timeout for executing raw command. After time elapses, the command will be terminated",
 	)
 
-	rawCmd.Flags().BoolP(
-		raw.KeyBufferedOutput(),
+	r.cmd.Flags().BoolP(
+		r.KeyBufferedOutput(),
 		"b",
-		raw.DefaultBufferedOutput(),
+		false,
 		"Commands output should be buffered or streamed",
 	)
 
-	// Bind flags
-	config.ViperBindPFlagSet(rawCmd, nil)
+	// Bind flags to config
+	config.ViperBindPFlagSet(r.cmd, nil)
 
-	raw.SetCmd(rawCmd)
+	return r
 }
 
-// RunRawCommand unmarshal commands and executes with provided arguments
-func RunRawCommand(cmd *cobra.Command, args []string) error {
+func (r *Raw) RunRawCommand(cmd *cobra.Command, args []string) error {
 	var commands []kubestrap.RawCommand
 	if err := viper.UnmarshalKey(
-		config.PrefixKey(cmd, raw.KeyRawUtilities()),
+		config.PrefixKey(cmd, r.KeyRawUtilities()),
 		&commands,
 		func(config *mapstructure.DecoderConfig) {
 			config.TagName = "yaml"
@@ -85,10 +92,10 @@ func RunRawCommand(cmd *cobra.Command, args []string) error {
 	}
 	for _, c := range commands {
 		if c.Name == args[0] || slices.Contains(c.Additional, args[0]) {
-			timeout := raw.Timeout()
+			timeout := r.Timeout()
 			log.Debugf("execution timeout: %s", timeout)
 			c.Command = args
-			status, err := c.ExecuteCommand(timeout, raw.BufferedOutput())
+			status, err := c.ExecuteCommand(timeout, r.BufferedOutput())
 			if err != nil {
 				return fmt.Errorf("error running '%s': %v", c.Command, err)
 			}
@@ -109,7 +116,7 @@ func RunRawCommand(cmd *cobra.Command, args []string) error {
 	return fmt.Errorf("command '%s' is not supported, perhaps add it to the config?", args[0])
 }
 
-func RunRawCommandCaptureStdout(cmd *cobra.Command, args []string) (string, error) {
+func (r *Raw) RunRawCommandCaptureStdout(cmd *cobra.Command, args []string) (string, error) {
 	// Capture stdout
 	p, err := file.NewPipeStdout()
 	if err != nil {
@@ -117,10 +124,10 @@ func RunRawCommandCaptureStdout(cmd *cobra.Command, args []string) (string, erro
 	}
 
 	// Run the command
-	currentBufferedOutput := raw.BufferedOutput()
-	raw.SetBufferedOutput(true)
-	rawErr := RunRawCommand(cmd, args)
-	raw.SetBufferedOutput(currentBufferedOutput)
+	currentBufferedOutput := r.BufferedOutput()
+	r.SetBufferedOutput(true)
+	rawErr := r.RunRawCommand(cmd, args)
+	r.SetBufferedOutput(currentBufferedOutput)
 
 	// back to normal state
 	out, err := p.CloseStdout()
@@ -131,24 +138,12 @@ func RunRawCommandCaptureStdout(cmd *cobra.Command, args []string) (string, erro
 	return out, rawErr
 }
 
-func NewRaw(parent *Root) *Raw {
-	return &Raw{
-		parent: parent,
-	}
+func (r *Raw) Cmd() *cobra.Command {
+	return r.cmd
 }
 
-func (r *Raw) SetCmd(cmd *cobra.Command) {
-	r.cmd = cmd
-}
-
-// Flags keys, defaults and value getters
 func (r *Raw) KeyTimeout() string {
 	return "timeout"
-}
-
-func (r *Raw) DefaultTimeout() time.Duration {
-	d, _ := time.ParseDuration("1m0s")
-	return d
 }
 
 func (r *Raw) Timeout() time.Duration {
@@ -161,10 +156,6 @@ func (r *Raw) KeyRawUtilities() string {
 
 func (r *Raw) KeyBufferedOutput() string {
 	return "buffered-output"
-}
-
-func (r *Raw) DefaultBufferedOutput() bool {
-	return false
 }
 
 func (r *Raw) BufferedOutput() bool {

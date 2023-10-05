@@ -18,81 +18,76 @@ type Secrets struct {
 }
 
 var (
-	// secretsCmd represents the secrets command
-	secretsCmd = &cobra.Command{
-		Use:     "secrets",
-		Short:   "Manages local encrypted secrets. Generates age and ssh keys.",
-		Long:    ``,
-		Aliases: []string{"s"},
-	}
-
 	secrets = NewSecrets(root)
 )
 
 func init() {
-	rootCmd.AddCommand(secretsCmd)
-	secretsCmd.SilenceErrors = secretsCmd.Parent().SilenceErrors
-	secretsCmd.SilenceUsage = secretsCmd.Parent().SilenceUsage
 
-	secretsCmd.PersistentFlags().StringP(
-		secrets.KeySecretsContext(),
-		"c",
-		secrets.DefaultSecretsContext(),
-		fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetes.GetKubeconfigPath()),
-	)
-
-	secretsCmd.PersistentFlags().StringP(
-		secrets.KeySecretsDir(),
-		"d",
-		secrets.DefaultSecretsDir(),
-		"Encrypted secrets directory",
-	)
-
-	secretsCmd.PersistentFlags().StringP(
-		secrets.KeyClusterBootstrapPath(),
-		"p",
-		secrets.DefaultClusterBootstrapPath(),
-		"Cluster definition path in the current repo",
-	)
-
-	secretsCmd.PersistentFlags().StringP(
-		secrets.KeySopsConfig(),
-		"s",
-		secrets.DefaultSopsConfig(),
-		"SOPS configuration file",
-	)
-
-	secretsCmd.PersistentFlags().StringP(
-		secrets.KeyKubeClusterDir(),
-		"k",
-		secrets.DefaultKubeClusterDir(),
-		"Kubernetes cluster directory",
-	)
-
-	// Bind flags
-	config.ViperBindPFlagSet(secretsCmd, secretsCmd.PersistentFlags())
-
-	secrets.SetCmd(secretsCmd)
 }
 
 func NewSecrets(parent *Root) *Secrets {
-	return &Secrets{
+	s := &Secrets{
 		parent: parent,
 	}
+
+	s.cmd = &cobra.Command{
+		Use:           "secrets",
+		Short:         "Manages local encrypted secrets. Generates age and ssh keys.",
+		Long:          ``,
+		Aliases:       []string{"s"},
+		SilenceErrors: parent.Cmd().SilenceErrors,
+		SilenceUsage:  parent.Cmd().SilenceUsage,
+	}
+
+	parent.Cmd().AddCommand(s.cmd)
+
+	s.cmd.PersistentFlags().StringP(
+		s.KeySecretsContext(),
+		"c",
+		defaults.Undefined,
+		fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetes.GetKubeconfigPath()),
+	)
+
+	s.cmd.PersistentFlags().StringP(
+		s.KeySecretsDir(),
+		"d",
+		"secrets",
+		"Encrypted secrets directory",
+	)
+
+	s.cmd.PersistentFlags().StringP(
+		s.KeyClusterBootstrapPath(),
+		"p",
+		s.DefaultClusterBootstrapPath(),
+		"Cluster definition path in the current repo",
+	)
+
+	s.cmd.PersistentFlags().StringP(
+		s.KeySopsConfig(),
+		"s",
+		s.DefaultSopsConfig(),
+		"SOPS configuration file",
+	)
+
+	s.cmd.PersistentFlags().StringP(
+		s.KeyKubeClusterDir(),
+		"k",
+		s.DefaultKubeClusterDir(),
+		"Kubernetes cluster directory",
+	)
+
+	// Bind flags to config
+	config.ViperBindPFlagSet(s.cmd, s.cmd.PersistentFlags())
+
+	return s
 }
 
-func (s *Secrets) SetCmd(cmd *cobra.Command) {
-	s.cmd = cmd
+func (s *Secrets) Cmd() *cobra.Command {
+	return s.cmd
 }
 
 func (s *Secrets) CheckRequiredFlags() error {
 	return config.CheckRequiredFlags(s.cmd, []string{s.KeySecretsContext()})
-}
-
-// Flags keys, defaults and value getters
-// DefaultSecretsContext returns default Kubernetes context
-func (s *Secrets) DefaultSecretsContext() string {
-	return defaults.Undefined
 }
 
 // KeySecretsContext returns key for SecretsContext
@@ -108,11 +103,6 @@ func (s *Secrets) SecretsContext() string {
 // KeySecretsDir returns key for SecretsDir
 func (s *Secrets) KeySecretsDir() string {
 	return "directory"
-}
-
-// DefaultSecretsDir returns default SecretsDir
-func (s *Secrets) DefaultSecretsDir() string {
-	return "secrets"
 }
 
 // SecretsDir returns SecretsDir

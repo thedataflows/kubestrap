@@ -22,8 +22,46 @@ type Root struct {
 }
 
 var (
-	// rootCmd represents the base command when called without any subcommands
-	rootCmd = &cobra.Command{
+	root = NewRoot()
+
+	stdInBytes []byte
+)
+
+func init() {
+	stat, err := os.Stdin.Stat()
+	mode := stat.Mode() & os.ModeNamedPipe
+	if err == nil && mode == os.ModeNamedPipe {
+		stdInBytes, _ = io.ReadAll(os.Stdin)
+	}
+}
+
+// Execute adds all child commands to the root command and sets flags appropriately.
+// This is called by main.main(). It only needs to happen once to the rootCmd.
+func Execute() {
+	// errors.MaxStackDepth = 20
+	if err := root.Cmd().Execute(); err != nil {
+		log.Fatal(log.ErrWithTrace(err))
+	}
+}
+
+func NewRoot() *Root {
+	configOpts, err := config.NewOptions(
+		config.WithEnvPrefix(constants.EnvPrefix),
+		config.WithConfigName(constants.DefaultConfigName),
+		config.WithUserConfigPaths(
+			[]string{
+				process.CurrentProcessDirectory(),
+				file.WorkingDirectory(),
+			},
+		),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	r := &Root{}
+
+	r.cmd = &cobra.Command{
 		Use:   "kubestrap",
 		Short: "Toolbox for easy bootstrap of self hosted kubernetes",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -39,66 +77,24 @@ var (
 		SilenceUsage:  true,
 	}
 
-	root = NewRoot()
-
-	configOpts, configOptsErr = config.NewOptions(
-		config.WithEnvPrefix(constants.EnvPrefix),
-		config.WithConfigName(constants.DefaultConfigName),
-		config.WithUserConfigPaths(
-			[]string{
-				process.CurrentProcessDirectory(),
-				file.WorkingDirectory(),
-			},
-		),
-	)
-
-	stdInBytes []byte
-)
-
-func init() {
-	if configOptsErr != nil {
-		panic(configOptsErr)
-	}
-
 	configOpts.Flags.String(
-		root.KeyProjectRoot(),
-		root.DefaultProjectRoot(),
+		r.KeyProjectRoot(),
+		r.DefaultProjectRoot(),
 		"Project root directory",
 	)
 
-	rootCmd.PersistentFlags().AddFlagSet(configOpts.Flags)
-	config.ViperBindPFlagSet(rootCmd, configOpts.Flags)
-	_ = rootCmd.ParseFlags(os.Args[1:])
+	r.cmd.PersistentFlags().AddFlagSet(configOpts.Flags)
+	config.ViperBindPFlagSet(r.cmd, configOpts.Flags)
 
 	if err := configOpts.InitConfig(); err != nil {
 		panic(err)
 	}
 
-	root.SetCmd(rootCmd)
-
-	stat, err := os.Stdin.Stat()
-	mode := stat.Mode() & os.ModeNamedPipe
-	if err == nil && mode == os.ModeNamedPipe {
-		stdInBytes, _ = io.ReadAll(os.Stdin)
-	}
-
+	return r
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
-	// errors.MaxStackDepth = 20
-	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(log.ErrWithTrace(err))
-	}
-}
-
-func NewRoot() *Root {
-	return &Root{}
-}
-
-func (r *Root) SetCmd(cmd *cobra.Command) {
-	r.cmd = cmd
+func (r *Root) Cmd() *cobra.Command {
+	return r.cmd
 }
 
 // Flags keys, defaults and value getters

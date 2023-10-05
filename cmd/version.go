@@ -9,19 +9,30 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type Version struct {
+	cmd    *cobra.Command
+	parent *Root
+}
+
 var (
+	_       = NewVersion(root)
 	version = "dev"
 )
 
-// versionCmd represents the version command
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Display version and exit",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(version)
-	},
-}
+func NewVersion(parent *Root) *Version {
+	v := &Version{
+		parent: parent,
+	}
 
-func init() {
-	rootCmd.AddCommand(versionCmd)
+	v.cmd = &cobra.Command{
+		Use:   "version",
+		Short: "Display version and exit",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println(version)
+		},
+	}
+
+	parent.Cmd().AddCommand(v.cmd)
+
+	return v
 }

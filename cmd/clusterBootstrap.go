@@ -19,53 +19,59 @@ type ClusterBootstrap struct {
 	parent *Cluster
 }
 
-// clusterBootstrapCmd represents the clusterBootstrap command
 var (
-	clusterBootstrapCmd = &cobra.Command{
-		Use:     "bootstrap",
-		Short:   "Bootstrap new cluster config and secrets",
-		Long:    ``,
-		RunE:    RunClusterBootstrapCommand,
-		Aliases: []string{"b"},
-	}
-
-	clusterBootstrap = NewClusterBootstrap(mycluster)
+	_ = NewClusterBootstrap(mycluster)
 )
 
 func init() {
-	clusterCmd.AddCommand(clusterBootstrapCmd)
-	clusterBootstrapCmd.SilenceErrors = clusterBootstrapCmd.Parent().SilenceErrors
-	clusterBootstrapCmd.SilenceUsage = clusterBootstrapCmd.Parent().SilenceUsage
 
-	// Bind flags
-	config.ViperBindPFlagSet(clusterBootstrapCmd, nil)
-
-	clusterBootstrap.SetCmd(clusterBootstrapCmd)
-
-	rigLog.Log = &log.Log
 }
 
-// RunClusterBootstrapCommand runs a command on the cluster
-func RunClusterBootstrapCommand(cmd *cobra.Command, args []string) error {
-	if err := clusterBootstrap.CheckRequiredFlags(); err != nil {
+func NewClusterBootstrap(parent *Cluster) *ClusterBootstrap {
+	cb := &ClusterBootstrap{
+		parent: parent,
+	}
+
+	cb.cmd = &cobra.Command{
+		Use:           "bootstrap",
+		Short:         "Bootstrap new cluster config and secrets",
+		Long:          ``,
+		RunE:          cb.RunClusterBootstrapCommand,
+		Aliases:       []string{"b"},
+		SilenceErrors: parent.Cmd().SilenceErrors,
+		SilenceUsage:  parent.Cmd().SilenceUsage,
+	}
+
+	parent.Cmd().AddCommand(cb.cmd)
+
+	// Bind flags to config
+	config.ViperBindPFlagSet(cb.cmd, nil)
+
+	rigLog.Log = &log.Log
+
+	return cb
+}
+
+func (c *ClusterBootstrap) RunClusterBootstrapCommand(cmd *cobra.Command, args []string) error {
+	if err := c.CheckRequiredFlags(); err != nil {
 		return err
 	}
 
-	clusterBootstrapPath := clusterBootstrap.parent.ClusterBootstrapPath()
+	clusterBootstrapPath := c.parent.ClusterBootstrapPath()
 	if err := os.MkdirAll(clusterBootstrapPath, 0700); err != nil {
 		return err
 	}
 
 	clusterFile := clusterBootstrapPath + "/cluster.yaml"
 	if !file.IsAccessible(clusterFile) {
-		out, err := RunRawCommandCaptureStdout(
-			rawCmd,
+		out, err := raw.RunRawCommandCaptureStdout(
+			raw.Cmd(),
 			[]string{
 				"k0sctl",
 				"init",
 				"--k0s",
 				"--cluster-name",
-				clusterBootstrap.parent.ClusterContext(),
+				c.parent.ClusterContext(),
 				"--key-path",
 				"cluster.sshkey.pub",
 				"root@10.0.0.1:@22",
@@ -89,11 +95,8 @@ func RunClusterBootstrapCommand(cmd *cobra.Command, args []string) error {
 
 	sshKey := clusterBootstrapPath + "/cluster.sshkey"
 	if !file.IsAccessible(sshKey) {
-		config.ViperSet(secretsCmd, secrets.KeySecretsContext(), clusterBootstrap.parent.ClusterContext())
-		if err := RunBootstrapSecretsCommand(
-			secretsBootstrapCmd,
-			args,
-		); err != nil {
+		config.ViperSet(secretsBootstrap.Cmd(), secrets.KeySecretsContext(), c.parent.ClusterContext())
+		if err := secretsBootstrap.RunBootstrapSecretsCommand(secretsBootstrap.Cmd(), args); err != nil {
 			return err
 		}
 	} else {
@@ -103,18 +106,6 @@ func RunClusterBootstrapCommand(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func NewClusterBootstrap(parent *Cluster) *ClusterBootstrap {
-	return &ClusterBootstrap{
-		parent: parent,
-	}
-}
-
-func (c *ClusterBootstrap) SetCmd(cmd *cobra.Command) {
-	c.cmd = cmd
-}
-
 func (c *ClusterBootstrap) CheckRequiredFlags() error {
 	return c.parent.CheckRequiredFlags()
 }
-
-// Flags keys, defaults and value getters

@@ -17,47 +17,54 @@ type ClusterKubeconfig struct {
 	parent *Cluster
 }
 
-// clusterKubeconfigCmd represents the clusterKubeconfig command
 var (
-	clusterKubeconfigCmd = &cobra.Command{
-		Use:     "kubeconfig",
-		Short:   "Fetch cluster kubeconfig",
-		Long:    ``,
-		RunE:    RunClusterKubeconfigCommand,
-		Aliases: []string{"k"},
-	}
-
-	clusterKubeconfig = NewClusterKubeconfig(mycluster)
+	_ = NewClusterKubeconfig(mycluster)
 )
 
 func init() {
-	clusterCmd.AddCommand(clusterKubeconfigCmd)
-	clusterKubeconfigCmd.SilenceErrors = clusterKubeconfigCmd.Parent().SilenceErrors
-	clusterKubeconfigCmd.SilenceUsage = clusterKubeconfigCmd.Parent().SilenceUsage
 
-	// Bind flags
-	config.ViperBindPFlagSet(clusterKubeconfigCmd, nil)
-
-	clusterKubeconfig.SetCmd(clusterKubeconfigCmd)
 }
 
-// RunClusterKubeconfigCommand runs a command on the cluster
-func RunClusterKubeconfigCommand(cmd *cobra.Command, args []string) error {
-	if err := clusterKubeconfig.CheckRequiredFlags(); err != nil {
+func NewClusterKubeconfig(parent *Cluster) *ClusterKubeconfig {
+	ck := &ClusterKubeconfig{
+		parent: parent,
+	}
+
+	ck.cmd = &cobra.Command{
+		Use:           "kubeconfig",
+		Short:         "Fetch cluster kubeconfig",
+		Long:          ``,
+		RunE:          ck.RunClusterKubeconfigCommand,
+		Aliases:       []string{"k"},
+		SilenceErrors: parent.Cmd().SilenceErrors,
+		SilenceUsage:  parent.Cmd().SilenceUsage,
+	}
+
+	parent.Cmd().AddCommand(ck.cmd)
+
+	// Bind flags to config
+	config.ViperBindPFlagSet(ck.cmd, nil)
+
+	return ck
+}
+
+func (c *ClusterKubeconfig) RunClusterKubeconfigCommand(cmd *cobra.Command, args []string) error {
+	if err := c.CheckRequiredFlags(); err != nil {
 		return err
 	}
 
-	clusterBootstrapPath := clusterBootstrap.parent.ClusterBootstrapPath()
+	clusterBootstrapPath := c.parent.ClusterBootstrapPath()
 
+	// Set working directory to cluster bootstrap path
 	currentDir := file.WorkingDirectory()
 	if err := os.Chdir(clusterBootstrapPath); err != nil {
 		return err
 	}
 	defer func() { _ = os.Chdir(currentDir) }()
 
-	config.ViperSet(rawCmd, clusterBootstrap.parent.KeyTimeout(), clusterBootstrap.parent.Timeout().String())
-	out, err := RunRawCommandCaptureStdout(
-		rawCmd,
+	config.ViperSet(raw.Cmd(), c.parent.KeyTimeout(), c.parent.Timeout())
+	out, err := raw.RunRawCommandCaptureStdout(
+		raw.Cmd(),
 		append(
 			[]string{
 				"k0sctl",
@@ -82,18 +89,6 @@ func RunClusterKubeconfigCommand(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func NewClusterKubeconfig(parent *Cluster) *ClusterKubeconfig {
-	return &ClusterKubeconfig{
-		parent: parent,
-	}
-}
-
-func (c *ClusterKubeconfig) SetCmd(cmd *cobra.Command) {
-	c.cmd = cmd
-}
-
 func (c *ClusterKubeconfig) CheckRequiredFlags() error {
 	return c.parent.CheckRequiredFlags()
 }
-
-// Flags keys, defaults and value getters

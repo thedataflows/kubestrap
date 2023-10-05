@@ -21,71 +21,77 @@ type FluxBootstrap struct {
 	parent *Flux
 }
 
-// fluxBootstrapCmd represents the fluxBootstrap command
 var (
-	fluxBootstrapCmd = &cobra.Command{
-		Use:     "bootstrap",
-		Short:   "Bootstrap or upgrade FluxCD",
-		Long:    ``,
-		Aliases: []string{"b"},
-		RunE:    RunFluxBoostrapCommand,
-	}
-
-	fluxBootstrap = NewFluxBootstrap(flux)
+	_ = NewFluxBootstrap(flux)
 )
 
 func init() {
-	fluxCmd.AddCommand(fluxBootstrapCmd)
-	fluxBootstrapCmd.SilenceErrors = fluxBootstrapCmd.Parent().SilenceErrors
-	fluxBootstrapCmd.SilenceUsage = fluxBootstrapCmd.Parent().SilenceUsage
 
-	fluxBootstrapCmd.Flags().StringP(
-		fluxBootstrap.KeyFluxBootstrapPath(),
+}
+
+func NewFluxBootstrap(parent *Flux) *FluxBootstrap {
+	fb := &FluxBootstrap{
+		parent: parent,
+	}
+
+	fb.cmd = &cobra.Command{
+		Use:           "bootstrap",
+		Short:         "Bootstrap or upgrade FluxCD",
+		Long:          ``,
+		Aliases:       []string{"b"},
+		RunE:          fb.RunFluxBoostrapCommand,
+		SilenceErrors: parent.Cmd().SilenceErrors,
+		SilenceUsage:  parent.Cmd().SilenceUsage,
+	}
+
+	parent.Cmd().AddCommand(fb.cmd)
+
+	fb.cmd.Flags().StringP(
+		fb.KeyFluxBootstrapPath(),
 		"p",
-		fluxBootstrap.DefaultFluxBootstrapPath(),
+		fb.DefaultFluxBootstrapPath(),
 		"FluxCD system path in the current repo",
 	)
 
-	fluxBootstrapCmd.Flags().String(
-		fluxBootstrap.KeyFluxBootstrapCommand(),
-		fluxBootstrap.DefaultFluxBootstrapCommand(),
+	fb.cmd.Flags().String(
+		fb.KeyFluxBootstrapCommand(),
+		"",
 		"FluxCD bootstrap command",
 	)
 
-	fluxBootstrapCmd.Flags().String(
-		fluxBootstrap.KeyFluxBootstrapPatchesFile(),
-		fluxBootstrap.DefaultBootstrapPatchesFile(),
+	fb.cmd.Flags().String(
+		fb.KeyFluxBootstrapPatchesFile(),
+		"flux-patches.yaml",
 		"FluxCD patches file",
 	)
 
-	// Bind flags
-	config.ViperBindPFlagSet(fluxBootstrapCmd, nil)
+	// Bind flags to config
+	config.ViperBindPFlagSet(fb.cmd, nil)
 
-	fluxBootstrap.SetCmd(fluxBootstrapCmd)
+	return fb
 }
 
-// RunFluxBoostrapCommand runs flux bootstrap subcommand
-func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
-	if err := fluxBootstrap.CheckRequiredFlags(); err != nil {
+func (f *FluxBootstrap) RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
+	if err := f.CheckRequiredFlags(); err != nil {
 		return err
 	}
 
 	// Run the main command
 	newArgs := []string{cmd.Parent().Use, cmd.Use}
-	newArgs = config.AppendStringArgsf("--%s=%s", cmd.Parent(), newArgs, fluxBootstrap.parent.KeyFluxContext())
+	newArgs = config.AppendStringArgsf("--%s=%s", cmd.Parent(), newArgs, f.parent.KeyFluxContext())
 	if len(args) > 0 {
 		newArgs = append(newArgs, args...)
 	} else {
-		newArgs = append(newArgs, fmt.Sprintf("--%s=%s", fluxBootstrap.parent.KeyFluxNamespace(), fluxBootstrap.parent.FluxNamespace()))
-		newArgs = config.AppendStringSplitArgs(cmd, newArgs, fluxBootstrap.KeyFluxBootstrapCommand(), "")
+		newArgs = append(newArgs, fmt.Sprintf("--%s=%s", f.parent.KeyFluxNamespace(), f.parent.FluxNamespace()))
+		newArgs = config.AppendStringSplitArgs(cmd, newArgs, f.KeyFluxBootstrapCommand(), "")
 	}
 
-	config.ViperSet(rawCmd, fluxBootstrap.parent.KeyTimeout(), fluxBootstrap.parent.Timeout().String())
-	if err := RunRawCommand(rawCmd, newArgs); err != nil {
+	config.ViperSet(raw.Cmd(), f.parent.KeyTimeout(), f.parent.Timeout())
+	if err := raw.RunRawCommand(raw.Cmd(), newArgs); err != nil {
 		return err
 	}
 
-	kustomizationFilePath, err := filepath.Abs(fluxBootstrap.FluxBootstrapPath() + "/kustomization.yaml")
+	kustomizationFilePath, err := filepath.Abs(f.FluxBootstrapPath() + "/kustomization.yaml")
 	if err != nil {
 		return err
 	}
@@ -95,7 +101,7 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	pData, err := yaml.ReadFile(fluxBootstrap.FluxBootstrapPatchesFile())
+	pData, err := yaml.ReadFile(f.FluxBootstrapPatchesFile())
 	if err != nil {
 		return err
 	}
@@ -115,7 +121,7 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 
 	// TODO repair this, it corrupts the git repo
 	// Git commit and push the patched kustomization
-	// r, err := git.PlainOpen(fluxBootstrap.parent.ProjectRoot())
+	// r, err := git.PlainOpen(f.parent.ProjectRoot())
 	// if err != nil {
 	// 	return fmt.Errorf("error opening git repository: %v", err)
 	// }
@@ -131,7 +137,7 @@ func RunFluxBoostrapCommand(cmd *cobra.Command, args []string) error {
 	// 	return nil
 	// }
 	// // file relative to the git root
-	// rootDirAbs, err := filepath.Abs(fluxBootstrap.parent.ProjectRoot())
+	// rootDirAbs, err := filepath.Abs(f.parent.ProjectRoot())
 	// if err != nil {
 	// 	return err
 	// }
@@ -173,16 +179,6 @@ func writeYaml(node *yaml.RNode, filePath string) error {
 	return os.WriteFile(filePath, b.Bytes(), 0600)
 }
 
-func NewFluxBootstrap(parent *Flux) *FluxBootstrap {
-	return &FluxBootstrap{
-		parent: parent,
-	}
-}
-
-func (f *FluxBootstrap) SetCmd(cmd *cobra.Command) {
-	f.cmd = cmd
-}
-
 func (f *FluxBootstrap) CheckRequiredFlags() error {
 	if err := config.CheckRequiredFlags(f.cmd, []string{f.KeyFluxBootstrapCommand()}); err != nil {
 		return err
@@ -190,7 +186,6 @@ func (f *FluxBootstrap) CheckRequiredFlags() error {
 	return f.parent.CheckRequiredFlags()
 }
 
-// Flags keys, defaults and value getters
 func (f *FluxBootstrap) KeyFluxBootstrapPath() string {
 	return "path"
 }
@@ -220,20 +215,8 @@ func (f *FluxBootstrap) KeyFluxBootstrapCommand() string {
 	return "command"
 }
 
-func (f *FluxBootstrap) DefaultFluxBootstrapCommand() string {
-	return ""
-}
-
-func (f *FluxBootstrap) FluxBootstrapCommand() string {
-	return config.ViperGetString(f.cmd, f.KeyFluxBootstrapCommand())
-}
-
 func (f *FluxBootstrap) KeyFluxBootstrapPatchesFile() string {
 	return "patches-file"
-}
-
-func (f *FluxBootstrap) DefaultBootstrapPatchesFile() string {
-	return "flux-patches.yaml"
 }
 
 func (f *FluxBootstrap) FluxBootstrapPatchesFile() string {

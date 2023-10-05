@@ -5,7 +5,9 @@ package cmd
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/pem"
@@ -32,84 +34,92 @@ type SecretsBootstrap struct {
 
 // secretsBootstrapCmd represents the secrets command
 var (
-	sshKeySizes         = []int{256, 384, 521}
-	secretsBootstrapCmd = &cobra.Command{
+	sshKeyTypes      = []string{"ecdsa-256", "ecdsa-384", "ecdsa-521", "ed25519"}
+	secretsBootstrap = NewSecretsBootstrap(secrets)
+)
+
+func init() {
+
+}
+
+func NewSecretsBootstrap(parent *Secrets) *SecretsBootstrap {
+	sb := &SecretsBootstrap{
+		parent: parent,
+	}
+
+	sb.cmd = &cobra.Command{
 		Use:     "bootstrap",
 		Short:   "Generates age and ssh keys.",
 		Long:    ``,
 		Aliases: []string{"b"},
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			secretsBootstrap.SetCmd(cmd)
-			keySize := secretsBootstrap.SshKeySize()
-			if !slices.Contains[[]int, int](sshKeySizes, keySize) {
-				return fmt.Errorf("invalid SSH key size: %d. Valid: %v", keySize, sshKeySizes)
+			keyType := sb.SshKeyType()
+			if !slices.Contains[[]string, string](sshKeyTypes, keyType) {
+				return fmt.Errorf("invalid SSH key size: %s. Valid: %v", keyType, sshKeyTypes)
 			}
 			return nil
 		},
-		RunE: RunBootstrapSecretsCommand,
+		RunE:          sb.RunBootstrapSecretsCommand,
+		SilenceErrors: parent.Cmd().SilenceErrors,
+		SilenceUsage:  parent.Cmd().SilenceUsage,
 	}
-	secretsBootstrap = NewSecretsBootstrap(secrets)
-)
 
-func init() {
-	secretsCmd.AddCommand(secretsBootstrapCmd)
-	secretsBootstrapCmd.SilenceErrors = secretsBootstrapCmd.Parent().SilenceErrors
-	secretsBootstrapCmd.SilenceUsage = secretsBootstrapCmd.Parent().SilenceUsage
+	parent.Cmd().AddCommand(sb.cmd)
 
-	secretsBootstrapCmd.Flags().StringP(
-		secretsBootstrap.KeyNamespace(),
+	sb.cmd.Flags().StringP(
+		sb.KeyNamespace(),
 		"n",
-		secretsBootstrap.DefaultNamespace(),
+		"flux-system",
 		"Kubernetes namespace for FluxCD Secrets",
 	)
 
-	secretsBootstrapCmd.Flags().String(
-		secretsBootstrap.KeyPrivateKeyPath(),
-		secretsBootstrap.DefaultPrivateKeyPath(),
+	sb.cmd.Flags().String(
+		sb.KeyPrivateKeyPath(),
+		sb.DefaultPrivateKeyPath(),
 		"Private key path",
 	)
 
-	secretsBootstrapCmd.Flags().String(
-		secretsBootstrap.KeyPublicKeyPath(),
-		secretsBootstrap.DefaultPublicKeyPath(),
+	sb.cmd.Flags().String(
+		sb.KeyPublicKeyPath(),
+		sb.DefaultPublicKeyPath(),
 		"Public key path. Can have multiple keys separated by new lines",
 	)
 
-	secretsBootstrapCmd.Flags().Bool(
-		secretsBootstrap.KeyForce(),
-		secretsBootstrap.DefaultForce(),
+	sb.cmd.Flags().Bool(
+		sb.KeyForce(),
+		false,
 		"Force overwrites",
 	)
 
-	secretsBootstrapCmd.Flags().Int(
-		secretsBootstrap.KeySshKeySize(),
-		secretsBootstrap.DefaultSshKeySize(),
-		fmt.Sprintf("SSH Private Key Size. Valid values: %v", sshKeySizes),
+	sb.cmd.Flags().String(
+		sb.KeySshKeyType(),
+		sshKeyTypes[0],
+		fmt.Sprintf("SSH Private Key Type. Valid values: %v", sshKeyTypes),
 	)
 
-	// Bind flags
-	config.ViperBindPFlagSet(secretsBootstrapCmd, nil)
+	// Bind flags to config
+	config.ViperBindPFlagSet(sb.cmd, nil)
 
-	secretsBootstrap.SetCmd(secretsBootstrapCmd)
+	return sb
 }
 
-func RunBootstrapSecretsCommand(cmd *cobra.Command, args []string) error {
-	if err := secretsBootstrap.CheckRequiredFlags(); err != nil {
+func (s *SecretsBootstrap) RunBootstrapSecretsCommand(cmd *cobra.Command, args []string) error {
+	if err := s.CheckRequiredFlags(); err != nil {
 		return err
 	}
 
-	log.Info("Generating source files encryption keys")
-	if err := secretsBootstrap.GenerateAgeKeys(); err != nil {
+	log.Info("generating source files encryption keys")
+	if err := s.GenerateAgeKeys(); err != nil {
 		log.Errorf("error generating source files encryption keys: %s", err)
 	}
 
-	if err := secretsBootstrap.PatchSopsConfig(); err != nil {
+	if err := s.PatchSopsConfig(); err != nil {
 		log.Errorf("error patching sops config: %s", err)
 	}
 
 	// Try to generate ssh private key if not exists, but continue on failure
-	log.Info("Generating SSH keys")
-	if err := secretsBootstrap.GenerateSshKeys(constants.DefaultClusterSshKeyFileName); err != nil {
+	log.Info("generating SSH keys")
+	if err := s.GenerateSshKeys(constants.DefaultClusterSshKeyFileName); err != nil {
 		log.Errorf("error generating SSH keys: %s", err)
 	}
 
@@ -127,8 +137,8 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 	encrypt := false
 	if !file.IsAccessible(privateKeyPath) || s.Force() {
 		// Create the private key
-		if err := RunRawCommand(
-			rawCmd,
+		if err := raw.RunRawCommand(
+			raw.Cmd(),
 			[]string{
 				"age-keygen",
 				"--output",
@@ -157,8 +167,8 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 	}
 	if encrypt {
 		// Encrypt the private key in place
-		if err := RunRawCommand(
-			rawCmd,
+		if err := raw.RunRawCommand(
+			raw.Cmd(),
 			[]string{
 				"age",
 				"--encrypt",
@@ -175,8 +185,8 @@ func (s *SecretsBootstrap) GenerateAgeKeys() error {
 
 	if !file.IsAccessible(s.PublicKeyPath()) || s.Force() {
 		// try to create the public key
-		if err := RunRawCommand(
-			rawCmd,
+		if err := raw.RunRawCommand(
+			raw.Cmd(),
 			[]string{
 				"age-keygen",
 				"-y",
@@ -221,8 +231,8 @@ func (s *SecretsBootstrap) PatchSopsConfig() error {
 		return fmt.Errorf("'%s' contains empty lines", s.PublicKeyPath())
 	}
 	const yqExpr = `.creation_rules[].key_groups[].age`
-	if err := RunRawCommand(
-		rawCmd,
+	if err := raw.RunRawCommand(
+		raw.Cmd(),
 		[]string{
 			"yq",
 			"--inplace",
@@ -251,7 +261,7 @@ func (s *SecretsBootstrap) GenerateSshKeys(keyBaseFileName string) error {
 	if file.IsFile(privateKeyFile) && !s.Force() {
 		return fmt.Errorf("'%s' exists. Use --force flag to override", privateKeyFile)
 	}
-	sshPubKey, sshPrivKey, err := GenerateECDSAKeys(s.SshKeySize())
+	sshPubKey, sshPrivKey, err := GenerateEncodedKeyPair(s.SshKeyType())
 	if err != nil {
 		return fmt.Errorf("failed: %s. Perhaps try with ssh-keygen?", err)
 	}
@@ -279,54 +289,68 @@ func (s *SecretsBootstrap) GenerateSshKeys(keyBaseFileName string) error {
 	return nil
 }
 
-func ellipticCurve(bitSize int) (elliptic.Curve, error) {
-	switch bitSize {
-	case 256:
-		return elliptic.P256(), nil
-	case 384:
-		return elliptic.P384(), nil
-	case 521:
-		return elliptic.P521(), nil
+func GenerateEncodedKeyPair(keyType string) (pubKeyBytes, privKeyBytes []byte, err error) {
+	var (
+		privateKeyRaw crypto.PrivateKey
+		publicKeySsh  ssh.PublicKey
+	)
+	switch keyType {
+	// "ecdsa-P256":
+	case sshKeyTypes[0]:
+		publicKeySsh, privateKeyRaw, err = generateEcdsaKey(elliptic.P256())
+	// "ecdsa-P384"
+	case sshKeyTypes[1]:
+		publicKeySsh, privateKeyRaw, err = generateEcdsaKey(elliptic.P384())
+	// "ecdsa-P521"
+	case sshKeyTypes[2]:
+		publicKeySsh, privateKeyRaw, err = generateEcdsaKey(elliptic.P521())
+	// "ed25519"
+	case sshKeyTypes[3]:
+		var publicKeyRaw ed25519.PublicKey
+		publicKeyRaw, privateKeyRaw, err = ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			return nil, nil, err
+		}
+		publicKeySsh, err = ssh.NewPublicKey(publicKeyRaw)
+	default:
+		return nil, nil, fmt.Errorf("invalid curve: %s. Supported: %v", keyType, sshKeyTypes)
 	}
-
-	return nil, fmt.Errorf("invalid bit size: %d. Supported: %v", bitSize, sshKeySizes)
-}
-
-// GenerateECDSAKeys generates ECDSA public and private key pair with given size for SSH.
-func GenerateECDSAKeys(bitSize int) (pubKey, privKey []byte, err error) {
-	curve, err := ellipticCurve(bitSize)
 	if err != nil {
-		return nil, nil, err
-	}
-	// generate private key
-	var privateKey *ecdsa.PrivateKey
-	if privateKey, err = ecdsa.GenerateKey(curve, rand.Reader); err != nil {
 		return nil, nil, err
 	}
 
 	// encode public key
-	var publicKey ssh.PublicKey
-	if publicKey, err = ssh.NewPublicKey(privateKey.Public()); err != nil {
-		return nil, nil, err
-	}
-	pubBytes := ssh.MarshalAuthorizedKey(publicKey)
+	pubKeyBytes = ssh.MarshalAuthorizedKey(publicKeySsh)
 
+	// encrypt private key with passphrase
 	passphrase, err := readOrGeneratePassphrase("SSH key", 32)
 	if err != nil {
 		return nil, nil, err
 	}
-	// encrypt private key with passphrase
 	var privBlock *pem.Block
-	if privBlock, err = ssh.MarshalPrivateKeyWithPassphrase(privateKey, "", passphrase); err != nil {
+	if privBlock, err = ssh.MarshalPrivateKeyWithPassphrase(privateKeyRaw, "", passphrase); err != nil {
 		return nil, nil, err
 	}
-	privBytes := pem.EncodeToMemory(
+	privKeyBytes = pem.EncodeToMemory(
 		&pem.Block{
 			Type:  privBlock.Type,
 			Bytes: privBlock.Bytes,
 		},
 	)
-	return pubBytes, privBytes, nil
+	return pubKeyBytes, privKeyBytes, nil
+}
+
+func generateEcdsaKey(curve elliptic.Curve) (ssh.PublicKey, *ecdsa.PrivateKey, error) {
+	privateKeyRaw, err := ecdsa.GenerateKey(curve, rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+	publicKeySsh, err := ssh.NewPublicKey(privateKeyRaw.Public())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return publicKeySsh, privateKeyRaw, nil
 }
 
 func readOrGeneratePassphrase(subject string, length int) ([]byte, error) {
@@ -367,14 +391,8 @@ func randomBytes(length int) []byte {
 	return b
 }
 
-func NewSecretsBootstrap(parent *Secrets) *SecretsBootstrap {
-	return &SecretsBootstrap{
-		parent: parent,
-	}
-}
-
-func (s *SecretsBootstrap) SetCmd(cmd *cobra.Command) {
-	s.cmd = cmd
+func (s *SecretsBootstrap) Cmd() *cobra.Command {
+	return s.cmd
 }
 
 func (s *SecretsBootstrap) CheckRequiredFlags() error {
@@ -386,16 +404,13 @@ func (s *SecretsBootstrap) KeyNamespace() string {
 	return "namespace"
 }
 
-func (s *SecretsBootstrap) DefaultNamespace() string {
-	return "flux-system"
-}
-
 func (s *SecretsBootstrap) Namespace() string {
 	return config.ViperGetString(s.cmd, s.KeyNamespace())
 }
 
 func (s *SecretsBootstrap) KeyPrivateKeyPath() string {
-	return "private-key"
+	const p = "private-key"
+	return p
 }
 
 func (s *SecretsBootstrap) DefaultPrivateKeyPath() string {
@@ -430,22 +445,14 @@ func (s *SecretsBootstrap) KeyForce() string {
 	return "force"
 }
 
-func (s *SecretsBootstrap) DefaultForce() bool {
-	return false
-}
-
 func (s *SecretsBootstrap) Force() bool {
 	return config.ViperGetBool(s.cmd, s.KeyForce())
 }
 
-func (s *SecretsBootstrap) KeySshKeySize() string {
-	return "ssh-key-size"
+func (s *SecretsBootstrap) KeySshKeyType() string {
+	return "ssh-key-type"
 }
 
-func (s *SecretsBootstrap) DefaultSshKeySize() int {
-	return 256
-}
-
-func (s *SecretsBootstrap) SshKeySize() int {
-	return config.ViperGetInt(s.cmd, s.KeySshKeySize())
+func (s *SecretsBootstrap) SshKeyType() string {
+	return config.ViperGetString(s.cmd, s.KeySshKeyType())
 }

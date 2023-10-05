@@ -22,41 +22,47 @@ type ClusterRemote struct {
 	parent *Cluster
 }
 
-// clusterRemoteCmd represents the clusterRemote command
 var (
-	clusterRemoteCmd = &cobra.Command{
-		Use:     "remote",
-		Short:   "Execute command clusterRemotely on the cluster",
-		Long:    ``,
-		RunE:    RunClusterRemoteCommand,
-		Aliases: []string{"r"},
-	}
-
-	clusterRemote = NewClusterRemote(mycluster)
+	_ = NewClusterRemote(mycluster)
 )
 
 func init() {
-	clusterCmd.AddCommand(clusterRemoteCmd)
-	clusterRemoteCmd.SilenceErrors = clusterRemoteCmd.Parent().SilenceErrors
-	clusterRemoteCmd.SilenceUsage = clusterRemoteCmd.Parent().SilenceUsage
 
-	clusterRemoteCmd.Flags().StringSlice(
-		clusterRemote.KeyClusterRemoteHosts(),
-		clusterRemote.DefaultClusterRemoteHosts(),
+}
+
+func NewClusterRemote(parent *Cluster) *ClusterRemote {
+	cr := &ClusterRemote{
+		parent: parent,
+	}
+
+	cr.cmd = &cobra.Command{
+		Use:           "remote",
+		Short:         "Execute command remotely on the cluster",
+		Long:          ``,
+		RunE:          cr.RunClusterRemoteCommand,
+		Aliases:       []string{"r"},
+		SilenceErrors: parent.Cmd().SilenceErrors,
+		SilenceUsage:  parent.Cmd().SilenceUsage,
+	}
+
+	parent.Cmd().AddCommand(cr.cmd)
+
+	cr.cmd.Flags().StringSlice(
+		cr.KeyClusterRemoteHosts(),
+		[]string{},
 		"List of hosts defined in the cluster to run the command on. If not specified, will execute on all hosts",
 	)
 
-	// Bind flags
-	config.ViperBindPFlagSet(clusterRemoteCmd, nil)
-
-	clusterRemote.SetCmd(clusterRemoteCmd)
+	// Bind flags to config
+	config.ViperBindPFlagSet(cr.cmd, nil)
 
 	rigLog.Log = &log.Log
+
+	return cr
 }
 
-// RunClusterRemoteCommand runs a command on the cluster
-func RunClusterRemoteCommand(cmd *cobra.Command, args []string) error {
-	if err := clusterRemote.CheckRequiredFlags(); err != nil {
+func (c *ClusterRemote) RunClusterRemoteCommand(cmd *cobra.Command, args []string) error {
+	if err := c.CheckRequiredFlags(); err != nil {
 		return err
 	}
 
@@ -64,10 +70,10 @@ func RunClusterRemoteCommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("command to execute is not specified")
 	}
 
-	clusterRemoteHosts := clusterRemote.ClusterRemoteHosts()
+	clusterRemoteHosts := c.ClusterRemoteHosts()
 
 	// Load cluster spec
-	cl, err := kubestrap.NewK0sCluster(clusterRemote.parent.ClusterContext(), clusterRemote.parent.ClusterBootstrapPath())
+	cl, err := kubestrap.NewK0sCluster(c.parent.ClusterContext(), c.parent.ClusterBootstrapPath())
 	if err != nil {
 		return err
 	}
@@ -84,7 +90,7 @@ func RunClusterRemoteCommand(cmd *cobra.Command, args []string) error {
 	)
 
 	currentDir := file.WorkingDirectory()
-	if err := os.Chdir(clusterRemote.parent.ClusterBootstrapPath()); err != nil {
+	if err := os.Chdir(c.parent.ClusterBootstrapPath()); err != nil {
 		return err
 	}
 	defer func() { _ = os.Chdir(currentDir) }()
@@ -111,27 +117,12 @@ func RunClusterRemoteCommand(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func NewClusterRemote(parent *Cluster) *ClusterRemote {
-	return &ClusterRemote{
-		parent: parent,
-	}
-}
-
-func (c *ClusterRemote) SetCmd(cmd *cobra.Command) {
-	c.cmd = cmd
-}
-
 func (c *ClusterRemote) CheckRequiredFlags() error {
 	return c.parent.CheckRequiredFlags()
 }
 
-// Flags keys, defaults and value getters
 func (c *ClusterRemote) KeyClusterRemoteHosts() string {
 	return "hosts"
-}
-
-func (c *ClusterRemote) DefaultClusterRemoteHosts() []string {
-	return []string{}
 }
 
 func (c *ClusterRemote) ClusterRemoteHosts() []string {

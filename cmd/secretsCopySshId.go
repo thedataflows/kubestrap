@@ -39,55 +39,63 @@ type SecretsCopySshId struct {
 
 // SecretsCopySshIdCmd represents the SecretsCopySshId command
 var (
-	secretsCopySshIdCmd = &cobra.Command{
-		Use:     "copy-ssh-id",
-		Short:   "Copy SSH Identities to remote hosts",
-		Long:    ``,
-		Aliases: []string{"c"},
-		RunE:    RunSecretsCopySshIdCommand,
-	}
-
-	secretsCopySshId = NewSecretsCopySshId(secrets)
+	_ = NewSecretsCopySshId(secrets)
 )
 
 func init() {
-	secretsCmd.AddCommand(secretsCopySshIdCmd)
-	secretsCopySshIdCmd.SilenceErrors = secretsCopySshIdCmd.Parent().SilenceErrors
-	secretsCopySshIdCmd.SilenceUsage = secretsCopySshIdCmd.Parent().SilenceUsage
 
-	secretsCopySshIdCmd.Flags().StringSlice(
-		secretsCopySshId.KeyHosts(),
-		secretsCopySshId.DefaultHosts(),
+}
+
+func NewSecretsCopySshId(parent *Secrets) *SecretsCopySshId {
+	sc := &SecretsCopySshId{
+		parent: parent,
+	}
+
+	sc.cmd = &cobra.Command{
+		Use:           "copy-ssh-id",
+		Short:         "Copy SSH Identities to remote hosts",
+		Long:          ``,
+		Aliases:       []string{"c"},
+		RunE:          sc.RunSecretsCopySshIdCommand,
+		SilenceErrors: parent.Cmd().SilenceErrors,
+		SilenceUsage:  parent.Cmd().SilenceUsage,
+	}
+
+	parent.Cmd().AddCommand(sc.cmd)
+
+	sc.cmd.Flags().StringSlice(
+		sc.KeyHosts(),
+		[]string{},
 		"List of hosts defined in the cluster. If not specified, will run on all hosts",
 	)
 
-	secretsCopySshIdCmd.Flags().StringP(
-		secretsCopySshId.KeyPrivateKeyFile(),
+	sc.cmd.Flags().StringP(
+		sc.KeyPrivateKeyFile(),
 		"k",
-		secretsCopySshId.DefaultPrivateKeyFile(),
+		sc.DefaultPrivateKeyFile(),
 		"Private key file to use for SSH authentication",
 	)
 
-	// Bind flags
-	config.ViperBindPFlagSet(secretsCopySshIdCmd, nil)
+	// Bind flags to config
+	config.ViperBindPFlagSet(sc.cmd, nil)
 
-	secretsCopySshId.SetCmd(secretsCopySshIdCmd)
+	return sc
 }
 
-func RunSecretsCopySshIdCommand(cmd *cobra.Command, args []string) error {
-	if err := secretsCopySshId.CheckRequiredFlags(); err != nil {
+func (s *SecretsCopySshId) RunSecretsCopySshIdCommand(cmd *cobra.Command, args []string) error {
+	if err := s.CheckRequiredFlags(); err != nil {
 		return err
 	}
 
 	// Try to copy ssh identity to the cluster
 	// Load cluster spec
-	secretsContext := secretsCopySshId.parent.SecretsContext()
-	clusterBootstrapPath := secretsCopySshId.parent.ClusterBootstrapPath()
+	secretsContext := s.parent.SecretsContext()
+	clusterBootstrapPath := s.parent.ClusterBootstrapPath()
 	cl, err := kubestrap.NewK0sCluster(secretsContext, clusterBootstrapPath)
 	if err != nil {
 		return err
 	}
-	filterHosts := secretsCopySshId.Hosts()
+	filterHosts := s.Hosts()
 	hosts := cl.GetClusterSpec().Spec.Hosts.Filter(
 		func(h *cluster.Host) bool {
 			for _, filterHost := range filterHosts {
@@ -100,7 +108,7 @@ func RunSecretsCopySshIdCommand(cmd *cobra.Command, args []string) error {
 	)
 
 	// read private key
-	privateKeyFile := secretsCopySshId.PrivateKeyFile()
+	privateKeyFile := s.PrivateKeyFile()
 	identity, err := os.ReadFile(privateKeyFile)
 	if err != nil {
 		log.Errorf("error reading private key file %s: %v", privateKeyFile, err)
@@ -310,14 +318,8 @@ func runSshCopyIdScript(host, clusterBootstrapPath string) error {
 	return nil
 }
 
-func NewSecretsCopySshId(parent *Secrets) *SecretsCopySshId {
-	return &SecretsCopySshId{
-		parent: parent,
-	}
-}
-
-func (s *SecretsCopySshId) SetCmd(cmd *cobra.Command) {
-	s.cmd = cmd
+func (s *SecretsCopySshId) Cmd() *cobra.Command {
+	return s.cmd
 }
 
 func (s *SecretsCopySshId) CheckRequiredFlags() error {
@@ -327,10 +329,6 @@ func (s *SecretsCopySshId) CheckRequiredFlags() error {
 // Flags keys, defaults and value getters
 func (s *SecretsCopySshId) KeyHosts() string {
 	return "hosts"
-}
-
-func (s *SecretsCopySshId) DefaultHosts() []string {
-	return []string{}
 }
 
 func (s *SecretsCopySshId) Hosts() []string {

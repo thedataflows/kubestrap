@@ -22,59 +22,67 @@ type Cluster struct {
 	parent *Root
 }
 
-// clusterCmd represents the cluster command
 var (
-	clusterCmd = &cobra.Command{
-		Use:     "cluster",
-		Short:   "Manages a kubernetes cluster",
-		Long:    ``,
-		Aliases: []string{"c"},
-		RunE:    RunClusterCommand,
-	}
-
 	mycluster = NewCluster(root)
 )
 
 func init() {
-	rootCmd.AddCommand(clusterCmd)
-	clusterCmd.SilenceErrors = clusterCmd.Parent().SilenceErrors
-	clusterCmd.SilenceUsage = clusterCmd.Parent().SilenceUsage
 
-	clusterCmd.PersistentFlags().StringP(
-		mycluster.KeyClusterContext(),
+}
+
+func NewCluster(parent *Root) *Cluster {
+	c := &Cluster{
+		parent: parent,
+	}
+
+	c.cmd = &cobra.Command{
+		Use:           "cluster",
+		Short:         "Manages a kubernetes cluster",
+		Long:          ``,
+		Aliases:       []string{"c"},
+		RunE:          c.RunClusterCommand,
+		SilenceErrors: parent.Cmd().SilenceErrors,
+		SilenceUsage:  parent.Cmd().SilenceUsage,
+	}
+
+	parent.Cmd().AddCommand(c.cmd)
+
+	c.cmd.PersistentFlags().StringP(
+		c.KeyClusterContext(),
 		"c",
-		mycluster.DefaultClusterContext(),
+		c.DefaultClusterContext(),
 		fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetes.GetKubeconfigPath()),
 	)
 
-	clusterCmd.PersistentFlags().StringP(
-		mycluster.KeyClusterBootstrapPath(),
+	c.cmd.PersistentFlags().StringP(
+		c.KeyClusterBootstrapPath(),
 		"p",
-		mycluster.DefaultClusterBootstrapPath(),
+		c.DefaultClusterBootstrapPath(),
 		"Cluster definition path in the current repository",
 	)
 
-	clusterCmd.PersistentFlags().DurationP(
-		mycluster.KeyTimeout(),
+	defaultTimeout, _ := time.ParseDuration("10m0s")
+	c.cmd.PersistentFlags().DurationP(
+		c.KeyTimeout(),
 		"t",
-		mycluster.DefaultTimeout(),
+		defaultTimeout,
 		"Timeout for executing cluster commands. After time elapses, the command will be terminated",
 	)
 
-	// Bind flags
-	config.ViperBindPFlagSet(clusterCmd, clusterCmd.PersistentFlags())
-
-	mycluster.SetCmd(clusterCmd)
+	// Bind flags to config
+	config.ViperBindPFlagSet(c.cmd, c.cmd.PersistentFlags())
 
 	rigLog.Log = &log.Log
+
+	return c
 }
 
-func RunClusterCommand(cmd *cobra.Command, args []string) error {
-	if err := mycluster.CheckRequiredFlags(); err != nil {
+func (c *Cluster) RunClusterCommand(cmd *cobra.Command, args []string) error {
+	if err := c.CheckRequiredFlags(); err != nil {
 		return err
 	}
 
-	clusterBootstrapPath := mycluster.ClusterBootstrapPath()
+	clusterBootstrapPath := c.ClusterBootstrapPath()
 	clusterBootstrapOsTmpPath := clusterBootstrapPath + "/../os/tmp"
 
 	if err := os.MkdirAll(clusterBootstrapOsTmpPath, 0700); err != nil {
@@ -88,8 +96,8 @@ func RunClusterCommand(cmd *cobra.Command, args []string) error {
 	defer func() { _ = os.Chdir(currentDir) }()
 
 	// Generate etc_hosts
-	out, err := RunRawCommandCaptureStdout(
-		rawCmd,
+	out, err := raw.RunRawCommandCaptureStdout(
+		raw.Cmd(),
 		[]string{
 			"yq",
 			"(.spec.hosts[]) | explode (.) | .privateAddress + \" \" + .hostname",
@@ -110,9 +118,9 @@ func RunClusterCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	// Run k0sctl apply
-	config.ViperSet(rawCmd, mycluster.KeyTimeout(), mycluster.Timeout().String())
-	if err := RunRawCommand(
-		rawCmd,
+	config.ViperSet(raw.Cmd(), c.KeyTimeout(), c.Timeout())
+	if err := raw.RunRawCommand(
+		raw.Cmd(),
 		append(
 			[]string{
 				"k0sctl",
@@ -156,14 +164,8 @@ func RunClusterCommand(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func NewCluster(parent *Root) *Cluster {
-	return &Cluster{
-		parent: parent,
-	}
-}
-
-func (c *Cluster) SetCmd(cmd *cobra.Command) {
-	c.cmd = cmd
+func (c *Cluster) Cmd() *cobra.Command {
+	return c.cmd
 }
 
 func (c *Cluster) CheckRequiredFlags() error {
@@ -205,14 +207,10 @@ func (c *Cluster) ClusterBootstrapPath() string {
 }
 
 func (c *Cluster) KeyTimeout() string {
-	return "timeout"
+	const t = "timeout"
+	return t
 }
 
-func (c *Cluster) DefaultTimeout() time.Duration {
-	d, _ := time.ParseDuration("10m0s")
-	return d
-}
-
-func (c *Cluster) Timeout() time.Duration {
-	return config.ViperGetDuration(c.cmd, c.KeyTimeout())
+func (c *Cluster) Timeout() string {
+	return config.ViperGetDuration(c.cmd, c.KeyTimeout()).String()
 }

@@ -18,83 +18,83 @@ type Flux struct {
 	parent *Root
 }
 
-// fluxCmd represents the flux command
 var (
-	fluxCmd = &cobra.Command{
-		Use:     "flux",
-		Short:   "FluxCD wrapper",
-		Long:    ``,
-		Aliases: []string{"f"},
-		RunE:    RunFluxCommand,
-	}
-
 	flux = NewFlux(root)
 )
 
 func init() {
-	rootCmd.AddCommand(fluxCmd)
-	fluxCmd.SilenceErrors = fluxCmd.Parent().SilenceErrors
-	fluxCmd.SilenceUsage = fluxCmd.Parent().SilenceUsage
 
-	fluxCmd.PersistentFlags().StringP(
-		flux.KeyFluxContext(),
+}
+
+func NewFlux(parent *Root) *Flux {
+	f := &Flux{
+		parent: parent,
+	}
+
+	f.cmd = &cobra.Command{
+		Use:           "flux",
+		Short:         "FluxCD wrapper",
+		Long:          ``,
+		Aliases:       []string{"f"},
+		RunE:          f.RunFluxCommand,
+		SilenceErrors: parent.Cmd().SilenceErrors,
+		SilenceUsage:  parent.Cmd().SilenceUsage,
+	}
+
+	parent.Cmd().AddCommand(f.cmd)
+
+	f.cmd.PersistentFlags().StringP(
+		f.KeyFluxContext(),
 		"c",
-		flux.DefaultFluxContext(),
+		f.DefaultFluxContext(),
 		fmt.Sprintf("[Required] Kubernetes context as defined in '%s'", kubernetes.GetKubeconfigPath()),
 	)
 
-	fluxCmd.PersistentFlags().StringP(
-		flux.KeyFluxNamespace(),
+	f.cmd.PersistentFlags().StringP(
+		f.KeyFluxNamespace(),
 		"n",
-		flux.DefaultFluxNamespace(),
+		f.DefaultFluxNamespace(),
 		"Kubernetes namespace for FluxCD",
 	)
 
-	fluxCmd.PersistentFlags().DurationP(
-		flux.KeyTimeout(),
+	defaultTimeout, _ := time.ParseDuration("5m0s")
+	f.cmd.PersistentFlags().DurationP(
+		f.KeyTimeout(),
 		"t",
-		flux.DefaultTimeout(),
+		defaultTimeout,
 		"Timeout for executing flux commands. After time elapses, the command will be terminated",
 	)
 
-	// Bind flags
-	config.ViperBindPFlagSet(fluxCmd, fluxCmd.PersistentFlags())
+	// Bind flags to config
+	config.ViperBindPFlagSet(f.cmd, f.cmd.PersistentFlags())
 
-	flux.SetCmd(fluxCmd)
+	return f
 }
 
-// RunFluxCommand runs flux subcommands with appropriate context
-func RunFluxCommand(cmd *cobra.Command, args []string) error {
-	if err := flux.CheckRequiredFlags(); err != nil {
+func (f *Flux) RunFluxCommand(cmd *cobra.Command, args []string) error {
+	if err := f.CheckRequiredFlags(); err != nil {
 		return err
 	}
 
 	newArgs := []string{cmd.Use}
-	newArgs = config.AppendStringArgsf("--%s=%s", cmd, newArgs, flux.KeyFluxContext())
+	newArgs = config.AppendStringArgsf("--%s=%s", cmd, newArgs, f.KeyFluxContext())
 	if len(args) > 0 {
 		newArgs = append(newArgs, args...)
 	} else {
-		newArgs = append(newArgs, fmt.Sprintf("--%s=%s", flux.KeyFluxNamespace(), flux.FluxNamespace()))
+		newArgs = append(newArgs, fmt.Sprintf("--%s=%s", f.KeyFluxNamespace(), f.FluxNamespace()))
 		newArgs = config.AppendStringSplitArgs(cmd, newArgs, "", "")
 	}
-	return RunRawCommand(rawCmd, newArgs)
+	return raw.RunRawCommand(raw.Cmd(), newArgs)
 }
 
-func NewFlux(parent *Root) *Flux {
-	return &Flux{
-		parent: parent,
-	}
-}
-
-func (f *Flux) SetCmd(cmd *cobra.Command) {
-	f.cmd = cmd
+func (f *Flux) Cmd() *cobra.Command {
+	return f.cmd
 }
 
 func (f *Flux) CheckRequiredFlags() error {
 	return config.CheckRequiredFlags(f.cmd, []string{f.KeyFluxContext()})
 }
 
-// Flags keys, defaults and value getters
 func (f *Flux) KeyFluxContext() string {
 	return "context"
 }
@@ -127,11 +127,6 @@ func (f *Flux) KeyTimeout() string {
 	return "timeout"
 }
 
-func (f *Flux) DefaultTimeout() time.Duration {
-	d, _ := time.ParseDuration("5m0s")
-	return d
-}
-
-func (f *Flux) Timeout() time.Duration {
-	return config.ViperGetDuration(f.cmd, f.KeyTimeout())
+func (f *Flux) Timeout() string {
+	return config.ViperGetDuration(f.cmd, f.KeyTimeout()).String()
 }
