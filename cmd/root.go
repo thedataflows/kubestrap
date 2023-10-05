@@ -85,6 +85,7 @@ func NewRoot() *Root {
 
 	r.cmd.PersistentFlags().AddFlagSet(configOpts.Flags)
 	config.ViperBindPFlagSet(r.cmd, configOpts.Flags)
+	_ = r.cmd.ParseFlags(os.Args[1:])
 
 	if err := configOpts.InitConfig(); err != nil {
 		panic(err)
