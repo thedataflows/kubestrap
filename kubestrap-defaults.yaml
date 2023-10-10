@@ -23,7 +23,7 @@ raw:
         linux: https://github.com/k0sproject/k0s/releases/download/{{release}}/{{name}}-{{release}}-{{arch}}
         # darwin: not yet available
     - name: k0sctl
-      release: v0.15.5
+      release: v0.16.0
       url:
         windows: https://github.com/k0sproject/k0sctl/releases/download/{{release}}/{{name}}-win-x64.exe
         linux: &linux https://github.com/k0sproject/k0sctl/releases/download/{{release}}/{{name}}-{{os}}-x64
