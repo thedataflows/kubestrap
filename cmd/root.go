@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/thedataflows/go-commons/pkg/config"
 	"github.com/thedataflows/go-commons/pkg/file"
@@ -104,7 +105,7 @@ func (r *Root) KeyProjectRoot() string {
 }
 
 func (r *Root) DefaultProjectRoot() string {
-	return file.WorkingDirectory()
+	return strings.ReplaceAll(file.WorkingDirectory(), "\\", "/")
 }
 
 func (r *Root) ProjectRoot() string {
