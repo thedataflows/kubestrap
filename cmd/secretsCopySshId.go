@@ -160,20 +160,22 @@ func (s *SecretsCopySshId) RunSecretsCopySshIdCommand(cmd *cobra.Command, args [
 		}
 		if !pubKeyFound {
 			log.Infof("[%s] copying ssh identity", host)
-			_, stderrPipe, err = sshRunCommand(
-				sshClient,
-				fmt.Sprintf("echo '%s' >> %s", pubKey, remoteAuthKeysFile),
+			c := fmt.Sprintf(
+				"P=%s; [ ! -d ${P%%/*} ] && mkdir -p ${P%%/*}; echo '%s' >> $P",
+				remoteAuthKeysFile,
+				pubKey,
 			)
+			_, stderrPipe, err = sshRunCommand(sshClient, c)
 			if err != nil {
 				stderrBytes, _ := io.ReadAll(stderrPipe)
-				log.Errorf("[%s] error running remote command: %v: %s", host, err, string(stderrBytes))
-				continue
+				log.Errorf("[%s] error running remote command '%s': %v: %s", host, c, err, string(stderrBytes))
+				// Try to run ssh-copy-id script if the above failed
+				if err := runSshCopyIdScript(host, clusterBootstrapPath); err != nil {
+					log.Errorf("error running ssh-copy-id script: %v", err)
+					continue
+				}
 			}
-			// Try to run ssh-copy-id script if the above failed
-			if err := runSshCopyIdScript(host, clusterBootstrapPath); err != nil {
-				log.Errorf("error running ssh-copy-id script: %v", err)
-				continue
-			}
+
 		}
 	}
 
@@ -181,6 +183,7 @@ func (s *SecretsCopySshId) RunSecretsCopySshIdCommand(cmd *cobra.Command, args [
 }
 
 func sshRunCommand(sshClient *ssh.Client, command string) (io.Reader, io.Reader, error) {
+	log.Debugf("running remote command: %s", command)
 	session, err := sshClient.NewSession()
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating session: %v", err)
