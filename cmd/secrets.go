@@ -69,9 +69,8 @@ func NewSecrets(parent *Root) *Secrets {
 		"SOPS configuration file",
 	)
 
-	s.cmd.PersistentFlags().StringP(
+	s.cmd.PersistentFlags().String(
 		s.KeyKubeClusterDir(),
-		"k",
 		s.DefaultKubeClusterDir(),
 		"Kubernetes cluster directory",
 	)
