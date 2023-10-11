@@ -27,8 +27,9 @@ func RunProcess(exePath string, args []string, timeout time.Duration, buffered b
 	}
 
 	currentCmd := cmd.NewCmdOptions(cmd.Options{
-		Buffered:  buffered,
-		Streaming: !buffered,
+		Buffered:       buffered,
+		Streaming:      !buffered,
+		LineBufferSize: 2 * cmd.DEFAULT_LINE_BUFFER_SIZE,
 	}, exePath, cleanArgs...)
 
 	exeName := filepath.Base(exePath)
@@ -44,7 +45,6 @@ func RunProcess(exePath string, args []string, timeout time.Duration, buffered b
 		return nil, fmt.Errorf("'%s %s' is already running with PID '%v'", currentCmd.Name, commandLineString, pid)
 	}
 
-	// Print STDOUT and STDERR lines streaming from Cmd
 	doneChan := make(chan struct{})
 	go func() {
 		defer close(doneChan)
@@ -78,7 +78,11 @@ func RunProcess(exePath string, args []string, timeout time.Duration, buffered b
 			<-time.After(timeout)
 			if !currentCmd.Status().Complete {
 				err := currentCmd.Stop()
-				log.Errorf("[%s] timeout running command after %v. Error: %v", exeName, timeout, err)
+				if err != nil {
+					log.Errorf("[%s] timeout running command after %v. Error: %v", exeName, timeout, err)
+				} else {
+					log.Errorf("[%s] timeout running command after %v", exeName, timeout)
+				}
 			}
 		}()
 	}
