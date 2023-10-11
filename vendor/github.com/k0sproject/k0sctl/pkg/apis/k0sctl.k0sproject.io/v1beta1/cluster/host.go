@@ -1,7 +1,6 @@
 package cluster
 
 import (
-	"encoding/json"
 	"fmt"
 	gos "os"
 	"path/filepath"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/alessio/shellescape"
-	"github.com/avast/retry-go"
 	"github.com/creasty/defaults"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
@@ -24,7 +22,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const k0sVersionWithForceFlag = "v1.27.4+k0s.0"
+var k0sForceFlagSince = version.MustConstraint(">= v1.27.4+k0s.0")
 
 // Host contains all the needed details to work with hosts
 type Host struct {
@@ -79,6 +77,33 @@ func (h *Host) SetDefaults() {
 	}
 }
 
+func validateBalancedQuotes(val any) error {
+	s, ok := val.(string)
+	if !ok {
+		return fmt.Errorf("invalid type")
+	}
+
+	quoteCount := make(map[rune]int)
+
+	for i, ch := range s {
+		if i > 0 && s[i-1] == '\\' {
+			continue
+		}
+
+		if ch == '\'' || ch == '"' {
+			quoteCount[ch]++
+		}
+	}
+
+	for _, count := range quoteCount {
+		if count%2 != 0 {
+			return fmt.Errorf("unbalanced quotes in %s", s)
+		}
+	}
+
+	return nil
+}
+
 func (h *Host) Validate() error {
 	// For rig validation
 	v := validator.New()
@@ -91,6 +116,7 @@ func (h *Host) Validate() error {
 		validation.Field(&h.PrivateAddress, is.IP),
 		validation.Field(&h.Files),
 		validation.Field(&h.NoTaints, validation.When(h.Role != "controller+worker", validation.NotIn(true).Error("noTaints can only be true for controller+worker role"))),
+		validation.Field(&h.InstallFlags, validation.Each(validation.By(validateBalancedQuotes))),
 	)
 }
 
@@ -146,9 +172,9 @@ type configurer interface {
 
 // HostMetadata resolved metadata for host
 type HostMetadata struct {
-	K0sBinaryVersion  string
+	K0sBinaryVersion  *version.Version
 	K0sBinaryTempFile string
-	K0sRunningVersion string
+	K0sRunningVersion *version.Version
 	Arch              string
 	IsK0sLeader       bool
 	Hostname          string
@@ -304,19 +330,9 @@ func (h *Host) K0sInstallCommand() (string, error) {
 		}
 	}
 
-	if flags.Include("--force") && h.Metadata.K0sBinaryVersion != "" {
-		targetVersion, err := version.NewVersion(k0sVersionWithForceFlag)
-		if err != nil {
-			return "", fmt.Errorf("internal error: failed to parse k0s version with force flag constant: %w", err)
-		}
-		installedVersion, err := version.NewVersion(h.Metadata.K0sBinaryVersion)
-		if err != nil {
-			return "", fmt.Errorf("failed to parse installed k0s version number: %w", err)
-		}
-		if installedVersion.LessThan(targetVersion) {
-			log.Warnf("%s: k0s version %s does not support the --force flag, ignoring it", h, h.Metadata.K0sBinaryVersion)
-			flags.Delete("--force")
-		}
+	if flags.Include("--force") && h.Metadata.K0sBinaryVersion != nil && !k0sForceFlagSince.Check(h.Metadata.K0sBinaryVersion) {
+		log.Warnf("%s: k0s version %s does not support the --force flag, ignoring it", h, h.Metadata.K0sBinaryVersion)
+		flags.Delete("--force")
 	}
 
 	cmd := h.Configurer.K0sCmdf("install %s %s", role, flags.Join())
@@ -385,7 +401,7 @@ func (h *Host) UpdateK0sBinary(path string, version *version.Version) error {
 		return fmt.Errorf("updated k0s binary version is %s not %s", updatedVersion, version)
 	}
 
-	h.Metadata.K0sBinaryVersion = version.String()
+	h.Metadata.K0sBinaryVersion = version
 
 	return nil
 }
@@ -396,95 +412,6 @@ func (h *Host) K0sDataDir() string {
 		return h.Configurer.DataDirDefaultPath()
 	}
 	return h.DataDir
-}
-
-type kubeNodeStatus struct {
-	Items []struct {
-		Status struct {
-			Conditions []struct {
-				Status string `json:"status"`
-				Type   string `json:"type"`
-			} `json:"conditions"`
-		} `json:"status"`
-	} `json:"items"`
-}
-
-// KubeNodeReady runs kubectl on the host and returns true if the given node is marked as ready
-func (h *Host) KubeNodeReady() (bool, error) {
-	output, err := h.ExecOutput(h.Configurer.KubectlCmdf(h, h.K0sDataDir(), "get node -l kubernetes.io/hostname=%s -o json", h.Metadata.Hostname), exec.HideOutput(), exec.Sudo(h))
-	if err != nil {
-		return false, err
-	}
-	log.Tracef("node status output:\n%s\n", output)
-	status := kubeNodeStatus{}
-	if err := json.Unmarshal([]byte(output), &status); err != nil {
-		return false, fmt.Errorf("failed to decode kubectl output: %s", err.Error())
-	}
-	for _, i := range status.Items {
-		for _, c := range i.Status.Conditions {
-			log.Debugf("%s: node status condition %s = %s", h, c.Type, c.Status)
-			if c.Type == "Ready" {
-				return c.Status == "True", nil
-			}
-		}
-	}
-
-	log.Debugf("%s: failed to find Ready=True state in kubectl output", h)
-	return false, nil
-}
-
-// WaitKubeNodeReady blocks until node becomes ready. TODO should probably use Context
-func (h *Host) WaitKubeNodeReady() error {
-	return retry.Do(
-		func() error {
-			status, err := h.KubeNodeReady()
-			if err != nil {
-				return err
-			}
-			if !status {
-				return fmt.Errorf("%s: node %s status not reported as ready", h, h.Metadata.Hostname)
-			}
-			return nil
-		},
-		retry.DelayType(retry.CombineDelay(retry.FixedDelay, retry.RandomDelay)),
-		retry.MaxJitter(time.Second*2),
-		retry.Delay(time.Second*3),
-		retry.Attempts(120),
-		retry.LastErrorOnly(true),
-	)
-}
-
-type statusEvents struct {
-	Items []struct {
-		Reason string `json:"reason"`
-	} `json:"items"`
-}
-
-// WaitK0sDynamicConfigReady blocks until dynamic config reconciliation has been performed
-func (h *Host) WaitK0sDynamicConfigReady() error {
-	return retry.Do(
-		func() error {
-			output, err := h.ExecOutput(h.Configurer.K0sCmdf("kubectl --data-dir=%s -n kube-system get event --field-selector involvedObject.name=k0s -o json", h.K0sDataDir()), exec.Sudo(h))
-			if err != nil {
-				return fmt.Errorf("failed to get k0s config status events: %w", err)
-			}
-			events := &statusEvents{}
-			if err := json.Unmarshal([]byte(output), &events); err != nil {
-				return fmt.Errorf("failed to decode kubectl output: %w", err)
-			}
-			for _, e := range events.Items {
-				if e.Reason == "SuccessfulReconcile" {
-					return nil
-				}
-			}
-			return fmt.Errorf("failed to find SuccessfulReconcile event in kubectl output")
-		},
-		retry.DelayType(retry.CombineDelay(retry.FixedDelay, retry.RandomDelay)),
-		retry.MaxJitter(time.Second*2),
-		retry.Delay(time.Second*3),
-		retry.Attempts(120),
-		retry.LastErrorOnly(true),
-	)
 }
 
 // DrainNode drains the given node
@@ -527,57 +454,6 @@ func (h *Host) CheckHTTPStatus(url string, expected ...int) error {
 
 }
 
-// WaitHTTPStatus waits until http status received for a GET from the URL is the expected one
-func (h *Host) WaitHTTPStatus(url string, expected ...int) error {
-	return retry.Do(
-		func() error {
-			return h.CheckHTTPStatus(url, expected...)
-		},
-		retry.DelayType(retry.CombineDelay(retry.FixedDelay, retry.RandomDelay)),
-		retry.MaxJitter(time.Second*2),
-		retry.Delay(time.Second*3),
-		retry.Attempts(60),
-		retry.LastErrorOnly(true),
-	)
-}
-
-// WaitK0sServiceRunning blocks until the k0s service is running on the host
-func (h *Host) WaitK0sServiceRunning() error {
-	return retry.Do(
-		func() error {
-			if !h.Configurer.ServiceIsRunning(h, h.K0sServiceName()) {
-				return fmt.Errorf("not running")
-			}
-			return h.Exec(h.Configurer.K0sCmdf("status"), exec.Sudo(h))
-		},
-		retry.DelayType(retry.CombineDelay(retry.FixedDelay, retry.RandomDelay)),
-		retry.MaxJitter(time.Second*2),
-		retry.Delay(time.Second*3),
-		retry.Attempts(60),
-		retry.LastErrorOnly(true),
-	)
-}
-
-// WaitK0sServiceStopped blocks until the k0s service is no longer running on the host
-func (h *Host) WaitK0sServiceStopped() error {
-	return retry.Do(
-		func() error {
-			if h.Configurer.ServiceIsRunning(h, h.K0sServiceName()) {
-				return fmt.Errorf("k0s still running")
-			}
-			if h.Exec(h.Configurer.K0sCmdf("status"), exec.Sudo(h)) == nil {
-				return fmt.Errorf("k0s still running")
-			}
-			return nil
-		},
-		retry.DelayType(retry.CombineDelay(retry.FixedDelay, retry.RandomDelay)),
-		retry.MaxJitter(time.Second*2),
-		retry.Delay(time.Second*3),
-		retry.Attempts(60),
-		retry.LastErrorOnly(true),
-	)
-}
-
 // NeedCurl returns true when the curl package is needed on the host
 func (h *Host) NeedCurl() bool {
 	// Windows does not need any packages for web requests
@@ -589,6 +465,9 @@ func (h *Host) NeedCurl() bool {
 }
 
 // NeedIPTables returns true when the iptables package is needed on the host
+//
+// Deprecated: iptables is only required for k0s versions that are unsupported
+// for a long time already (< v1.22.1+k0s.0).
 func (h *Host) NeedIPTables() bool {
 	// Windows does not need iptables
 	if h.Configurer.Kind() == "windows" {
@@ -611,13 +490,6 @@ func (h *Host) NeedInetUtils() bool {
 	}
 
 	return !h.Configurer.CommandExist(h, "hostname")
-}
-
-// WaitKubeAPIReady blocks until the local kube api responds to /version
-func (h *Host) WaitKubeAPIReady(port int) error {
-	// If the anon-auth is disabled on kube api the version endpoint will give 401
-	// thus we need to accept both 200 and 401 as valid statuses when checking kube api
-	return h.WaitHTTPStatus(fmt.Sprintf("https://localhost:%d/version", port), 200, 401)
 }
 
 // FileChanged returns true when a remote file has different size or mtime compared to local
