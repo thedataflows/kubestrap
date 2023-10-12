@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/cavaliergopher/grab/v3 v3.0.1
+	github.com/dlclark/regexp2 v1.10.0
 	github.com/go-cmd/cmd v1.4.2
 	github.com/goccy/go-yaml v1.11.2
 	github.com/k0sproject/k0sctl v0.16.0

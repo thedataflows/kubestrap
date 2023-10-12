@@ -76,30 +76,8 @@ func (s *SecretsDecrypt) RunSecretsDecryptCommand(cmd *cobra.Command, args []str
 		args = []string{constants.DefaultSecretFilesPattern}
 	}
 
-	if os.Getenv("SOPS_AGE_KEY") == "" {
-		log.Infof("loading private key: %s", s.PrivateKeyPath())
-		out, err := raw.RunRawCommandCaptureStdout(
-			raw.Cmd(),
-			[]string{
-				"age",
-				"--decrypt",
-				s.PrivateKeyPath(),
-			},
-		)
-		if err != nil {
-			if len(out) == 0 {
-				return err
-			}
-			return fmt.Errorf("%v\n%s", err, out)
-		}
-		if len(out) == 0 {
-			return fmt.Errorf("private key is empty")
-		}
-
-		// set SOPS_AGE_KEY environment variable
-		if err := os.Setenv("SOPS_AGE_KEY", out); err != nil {
-			return err
-		}
+	if err := loadAgePrivateKey(s.PrivateKeyPath()); err != nil {
+		return err
 	}
 
 	for _, arg := range args {
@@ -145,6 +123,36 @@ func (s *SecretsDecrypt) findFiles(pattern string) *search.Results {
 	}
 
 	return search.FindFile(ctx, s.parent.KubeClusterDir(), fileFilter, finder, runtime.NumCPU())
+}
+
+func loadAgePrivateKey(privateKeyPath string) error {
+	if os.Getenv("SOPS_AGE_KEY") == "" {
+		log.Infof("loading private key: %s", privateKeyPath)
+		out, err := raw.RunRawCommandCaptureStdout(
+			raw.Cmd(),
+			[]string{
+				"age",
+				"--decrypt",
+				privateKeyPath,
+			},
+		)
+		if err != nil {
+			if len(out) == 0 {
+				return err
+			}
+			return fmt.Errorf("%v\n%s", err, out)
+		}
+		if len(out) == 0 {
+			return fmt.Errorf("private key is empty")
+		}
+
+		// set SOPS_AGE_KEY environment variable
+		if err := os.Setenv("SOPS_AGE_KEY", out); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *SecretsDecrypt) CheckRequiredFlags() error {
