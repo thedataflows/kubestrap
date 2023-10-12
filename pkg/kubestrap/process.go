@@ -2,6 +2,7 @@ package kubestrap
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,7 +18,7 @@ import (
 )
 
 // RunProcess starts a process and waits for it to complete but not after specified timeout
-func RunProcess(exePath string, args []string, timeout time.Duration, buffered bool) (*cmd.Status, error) {
+func RunProcess(exePath string, args []string, timeout time.Duration, buffered bool, stdin io.Reader) (*cmd.Status, error) {
 	// eliminate empty args
 	var cleanArgs []string
 	for _, a := range args {
@@ -88,7 +89,10 @@ func RunProcess(exePath string, args []string, timeout time.Duration, buffered b
 	}
 
 	// Run and wait for Cmd to return
-	statusChan := <-currentCmd.StartWithStdin(os.Stdin)
+	if stdin == nil {
+		stdin = os.Stdin
+	}
+	statusChan := <-currentCmd.StartWithStdin(stdin)
 	<-doneChan
 	return &statusChan, nil
 }

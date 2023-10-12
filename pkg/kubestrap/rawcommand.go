@@ -2,6 +2,7 @@ package kubestrap
 
 import (
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"os/exec"
@@ -39,7 +40,7 @@ type RawCommand struct {
 }
 
 // ExecuteCommand attempts to execute an instance of a subcommand
-func (command *RawCommand) ExecuteCommand(timeout time.Duration, buffered bool) (*cmd.Status, error) {
+func (command *RawCommand) ExecuteCommand(timeout time.Duration, buffered bool, stdin io.Reader) (*cmd.Status, error) {
 	// Set PATH and get executable path
 	if _, err := command.ExeDir(); err != nil {
 		return nil, err
@@ -54,7 +55,7 @@ func (command *RawCommand) ExecuteCommand(timeout time.Duration, buffered bool) 
 		return nil, err
 	}
 
-	status, err := RunProcess(exePath, command.Command[1:], timeout, buffered)
+	status, err := RunProcess(exePath, command.Command[1:], timeout, buffered, stdin)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +80,13 @@ func (command *RawCommand) CheckCommand(timeout time.Duration) error {
 	if command.VersionCommand == "" {
 		command.VersionCommand = "version"
 	}
-	status, errRun = RunProcess(commandExePath, regexp.MustCompile(`\s+`).Split(command.VersionCommand, -1), timeout, true)
+	status, errRun = RunProcess(
+		commandExePath,
+		regexp.MustCompile(`\s+`).Split(command.VersionCommand, -1),
+		timeout,
+		true,
+		nil,
+	)
 	switch {
 	case errRun != nil:
 		return fmt.Errorf("[%s] version check failed:\n%+v", command.Name, errRun)

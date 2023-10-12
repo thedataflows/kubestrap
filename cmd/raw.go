@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 type Raw struct {
 	cmd    *cobra.Command
 	parent *Root
+	stdin  io.Reader
 }
 
 var (
@@ -95,7 +97,7 @@ func (r *Raw) RunRawCommand(cmd *cobra.Command, args []string) error {
 			timeout := r.Timeout()
 			log.Debugf("execution timeout: %s", timeout)
 			c.Command = args
-			status, err := c.ExecuteCommand(timeout, r.BufferedOutput())
+			status, err := c.ExecuteCommand(timeout, r.BufferedOutput(), r.stdin)
 			if err != nil {
 				return fmt.Errorf("error running '%s': %v", c.Command, err)
 			}
@@ -132,7 +134,7 @@ func (r *Raw) RunRawCommandCaptureStdout(cmd *cobra.Command, args []string) (str
 	// back to normal state
 	out, err := p.CloseStdout()
 	if err != nil {
-		return "", err
+		return out, err
 	}
 
 	return out, rawErr
@@ -164,4 +166,8 @@ func (r *Raw) BufferedOutput() bool {
 
 func (r *Raw) SetBufferedOutput(v bool) {
 	config.ViperSet(r.cmd, r.KeyBufferedOutput(), fmt.Sprint(v))
+}
+
+func (r *Raw) SetStdin(stdin io.Reader) {
+	r.stdin = stdin
 }
