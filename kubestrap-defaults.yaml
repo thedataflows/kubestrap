@@ -47,7 +47,7 @@ raw:
       extract:
         pattern: age/age.*
     - name: sops
-      release: 3.8.0
+      release: 3.8.1
       url:
         windows: https://github.com/mozilla/sops/releases/download/v{{release}}/{{name}}-v{{release}}.exe
         linux: &linux https://github.com/mozilla/sops/releases/download/v{{release}}/{{name}}-v{{release}}.{{os}}.{{arch}}
@@ -61,7 +61,7 @@ raw:
         darwin: *windows
       version-command: version --client-only
     - name: flarectl
-      release: 0.78.0
+      release: 0.79.0
       url:
         windows: &windows https://github.com/cloudflare/cloudflare-go/releases/download/v{{release}}/{{name}}_{{release}}_{{os}}_{{arch}}.tar.gz
         linux: *windows
