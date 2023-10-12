@@ -10,7 +10,7 @@ raw:
         darwin: *linux
       version-command: --version
     - name: kubectl
-      release: v1.27.5
+      release: v1.27.6
       url:
         windows: https://dl.k8s.io/release/{{release}}/bin/{{os}}/{{arch}}/{{name}}.exe
         linux: &linux https://dl.k8s.io/release/{{release}}/bin/{{os}}/{{arch}}/{{name}}
