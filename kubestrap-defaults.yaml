@@ -29,7 +29,7 @@ raw:
         linux: &linux https://github.com/k0sproject/k0sctl/releases/download/{{release}}/{{name}}-{{os}}-x64
         darwin: *linux
     - name: flux
-      release: 2.1.1
+      release: 2.1.2
       url:
         windows: https://github.com/fluxcd/flux2/releases/download/v{{release}}/{{name}}_{{release}}_{{os}}_{{arch}}.zip
         linux: &linux https://github.com/fluxcd/flux2/releases/download/v{{release}}/{{name}}_{{release}}_{{os}}_{{arch}}.tar.gz
