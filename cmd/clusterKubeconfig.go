@@ -35,7 +35,7 @@ func NewClusterKubeconfig(parent *Cluster) *ClusterKubeconfig {
 		Short:         "Fetch cluster kubeconfig",
 		Long:          ``,
 		RunE:          ck.RunClusterKubeconfigCommand,
-		Aliases:       []string{"k"},
+		Aliases:       []string{"kc"},
 		SilenceErrors: parent.Cmd().SilenceErrors,
 		SilenceUsage:  parent.Cmd().SilenceUsage,
 	}
