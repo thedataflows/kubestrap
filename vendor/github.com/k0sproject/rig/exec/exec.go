@@ -3,6 +3,7 @@ package exec
 
 import (
 	"bufio"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -20,17 +21,17 @@ var (
 	Confirm = false
 
 	// DebugFunc can be replaced to direct the output of exec logging into your own function (standard sprintf interface)
-	DebugFunc = func(s string, args ...interface{}) {
+	DebugFunc = func(s string, args ...any) {
 		log.Debugf(s, args...)
 	}
 
 	// InfoFunc can be replaced to direct the output of exec logging into your own function (standard sprintf interface)
-	InfoFunc = func(s string, args ...interface{}) {
+	InfoFunc = func(s string, args ...any) {
 		log.Infof(s, args...)
 	}
 
 	// ErrorFunc can be replaced to direct the output of exec logging into your own function (standard sprintf interface)
-	ErrorFunc = func(s string, args ...interface{}) {
+	ErrorFunc = func(s string, args ...any) {
 		log.Errorf(s, args...)
 	}
 
@@ -46,6 +47,11 @@ var (
 
 	mutex sync.Mutex
 )
+
+// Waiter is a process that can be waited to finish
+type Waiter interface {
+	Wait() error
+}
 
 // Option is a functional option for the exec package
 type Option func(*Options)
@@ -69,7 +75,7 @@ type Options struct {
 }
 
 type host interface {
-	Sudo(string) (string, error)
+	Sudo(cmd string) (string, error)
 }
 
 // Command returns the command wrapped in a sudo if sudo is enabled or the original command
@@ -85,6 +91,23 @@ func (o *Options) Command(cmd string) (string, error) {
 	return out, nil
 }
 
+func decodeEncoded(cmd string) string {
+	if !strings.Contains(cmd, "powershell") {
+		return cmd
+	}
+
+	parts := strings.Split(cmd, " ")
+	for i, p := range parts {
+		if p == "-E" || p == "-EncodedCommand" && len(parts) > i+1 {
+			decoded, err := base64.StdEncoding.DecodeString(parts[i+1])
+			if err == nil {
+				parts[i+1] = strings.ReplaceAll(string(decoded), "\x00", "")
+			}
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
 // LogCmd is for logging the command to be executed
 func (o *Options) LogCmd(prefix, cmd string) {
 	if Confirm {
@@ -97,9 +120,9 @@ func (o *Options) LogCmd(prefix, cmd string) {
 	}
 
 	if o.LogCommand {
-		DebugFunc("%s: executing `%s`", prefix, o.Redact(cmd))
+		DebugFunc("%s: executing `%s`", prefix, o.Redact(decodeEncoded(cmd)))
 	} else {
-		DebugFunc("%s: executing [REDACTED]", prefix)
+		DebugFunc("%s: executing command", prefix)
 	}
 }
 
@@ -117,21 +140,21 @@ func (o *Options) LogStdin(prefix string) {
 }
 
 // LogDebugf is a conditional debug logger
-func (o *Options) LogDebugf(s string, args ...interface{}) {
+func (o *Options) LogDebugf(s string, args ...any) {
 	if o.LogDebug {
 		DebugFunc(s, args...)
 	}
 }
 
 // LogInfof is a conditional info logger
-func (o *Options) LogInfof(s string, args ...interface{}) {
+func (o *Options) LogInfof(s string, args ...any) {
 	if o.LogInfo {
 		InfoFunc(s, args...)
 	}
 }
 
 // LogErrorf is a conditional error logger
-func (o *Options) LogErrorf(s string, args ...interface{}) {
+func (o *Options) LogErrorf(s string, args ...any) {
 	if o.LogError {
 		ErrorFunc(s, args...)
 	}
@@ -196,6 +219,13 @@ func Output(output *string) Option {
 func StreamOutput() Option {
 	return func(o *Options) {
 		o.StreamOutput = true
+	}
+}
+
+// LogError exec option for enabling or disabling live error logging during exec
+func LogError(v bool) Option {
+	return func(o *Options) {
+		o.LogError = v
 	}
 }
 
@@ -275,7 +305,7 @@ func Build(opts ...Option) *Options {
 		LogInfo:      false,
 		LogCommand:   true,
 		LogDebug:     true,
-		LogError:     true,
+		LogError:     false,
 		LogOutput:    true,
 		StreamOutput: false,
 		Sudo:         false,

@@ -36,7 +36,10 @@ func (p *Pipe) pipe(file *os.File) error {
 	p.outChan = make(chan string)
 	go func() {
 		var buf bytes.Buffer
-		io.Copy(&buf, pr)
+		_, err := io.Copy(&buf, pr)
+		if err != nil {
+			return
+		}
 		p.outChan <- buf.String()
 	}()
 	return nil

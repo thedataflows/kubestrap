@@ -1,7 +1,11 @@
 package v1beta1
 
 import (
-	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"fmt"
+
+	"github.com/creasty/defaults"
+	"github.com/jellydator/validation"
+
 	"github.com/k0sproject/k0sctl/pkg/apis/k0sctl.k0sproject.io/v1beta1/cluster"
 )
 
@@ -10,8 +14,9 @@ const APIVersion = "k0sctl.k0sproject.io/v1beta1"
 
 // ClusterMetadata defines cluster metadata
 type ClusterMetadata struct {
-	Name       string `yaml:"name" validate:"required" default:"k0s-cluster"`
-	Kubeconfig string `yaml:"-"`
+	Name        string   `yaml:"name" validate:"required" default:"k0s-cluster"`
+	Kubeconfig  string   `yaml:"-"`
+	EtcdMembers []string `yaml:"-"`
 }
 
 // Cluster describes launchpad.yaml configuration
@@ -34,6 +39,10 @@ func (c *Cluster) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	if err := unmarshal(yc); err != nil {
 		return err
+	}
+
+	if err := defaults.Set(c); err != nil {
+		return fmt.Errorf("failed to set defaults: %w", err)
 	}
 
 	return nil

@@ -4,6 +4,7 @@ package rig
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -11,26 +12,22 @@ import (
 
 	"github.com/alessio/shellescape"
 	"github.com/creasty/defaults"
-	"github.com/google/shlex"
 	"github.com/k0sproject/rig/exec"
 	"github.com/k0sproject/rig/log"
 	rigos "github.com/k0sproject/rig/os"
 	"github.com/k0sproject/rig/pkg/rigfs"
+	"github.com/mattn/go-shellwords"
 )
 
 var _ rigos.Host = (*Connection)(nil)
-
-type waiter interface {
-	Wait() error
-}
 
 type client interface {
 	Connect() error
 	Disconnect()
 	IsWindows() bool
-	Exec(string, ...exec.Option) error
-	ExecStreams(string, io.ReadCloser, io.Writer, io.Writer, ...exec.Option) (waiter, error)
-	ExecInteractive(string) error
+	Exec(cmd string, opts ...exec.Option) error
+	ExecStreams(cmd string, stdin io.ReadCloser, stdout io.Writer, stderr io.Writer, opts ...exec.Option) (exec.Waiter, error)
+	ExecInteractive(cmd string) error
 	String() string
 	Protocol() string
 	IPAddress() string
@@ -173,6 +170,9 @@ func (c *Connection) SudoFsys() rigfs.Fsys {
 
 // IsWindows returns true on windows hosts
 func (c *Connection) IsWindows() bool {
+	if c.OSVersion != nil {
+		return c.OSVersion.ID == "windows"
+	}
 	if !c.IsConnected() {
 		if client := c.configuredClient(); client != nil {
 			return client.IsWindows()
@@ -183,7 +183,7 @@ func (c *Connection) IsWindows() bool {
 
 // ExecStreams executes a command on the remote host and uses the passed in streams for stdin, stdout and stderr. It returns a Waiter with a .Wait() function that
 // blocks until the command finishes and returns an error if the exit code is not zero.
-func (c Connection) ExecStreams(cmd string, stdin io.ReadCloser, stdout, stderr io.Writer, opts ...exec.Option) (rigfs.Waiter, error) {
+func (c Connection) ExecStreams(cmd string, stdin io.ReadCloser, stdout, stderr io.Writer, opts ...exec.Option) (exec.Waiter, error) {
 	if err := c.checkConnected(); err != nil {
 		return nil, fmt.Errorf("%w: exec with streams: %w", ErrCommandFailed, err)
 	}
@@ -251,9 +251,9 @@ func sudoNoop(cmd string) string {
 }
 
 func sudoSudo(cmd string) string {
-	parts, err := shlex.Split(cmd)
+	parts, err := shellwords.Parse(cmd)
 	if err != nil {
-		return "sudo -s -- " + cmd
+		return "sudo -- " + cmd
 	}
 
 	var idx int
@@ -266,51 +266,80 @@ func sudoSudo(cmd string) string {
 	}
 
 	if idx == 0 {
-		return "sudo -s -- " + cmd
+		return "sudo -- " + cmd
 	}
 
 	for i, p := range parts {
 		parts[i] = shellescape.Quote(p)
 	}
 
-	return fmt.Sprintf("sudo -s %s -- %s", strings.Join(parts[0:idx], " "), strings.Join(parts[idx:], " "))
+	return fmt.Sprintf("sudo %s -- %s", strings.Join(parts[0:idx], " "), strings.Join(parts[idx:], " "))
 }
 
 func sudoDoas(cmd string) string {
 	return `doas -n -- "${SHELL-sh}" -c ` + shellescape.Quote(cmd)
 }
 
-var sudoChecks = map[string]sudofn{
-	`[ "$(id -u)" = 0 ]`:               sudoNoop,
-	"sudo -n true":                     sudoSudo,
-	`doas -n -- "${SHELL-sh}" -c true`: sudoDoas,
-}
-
-const sudoCheckWindows = `whoami | findstr /i "administrator"`
-
+// sudoWindows is a no-op on windows - the user must already be an admin or UAC must be disabled
+// and the user must belong to Administrators. if that is the case, the user should be able to
+// do anything.
 func sudoWindows(cmd string) string {
-	return "runas /user:Administrator " + cmd
+	return cmd
 }
 
 func (c *Connection) configureSudo() {
-	if c.OSVersion.ID == "windows" {
-		if c.Exec(sudoCheckWindows) == nil {
-			c.sudofunc = sudoWindows
+	if !c.IsWindows() {
+		if c.Exec(`[ "$(id -u)" = 0 ]`) == nil {
+			// user is already root
+			c.sudofunc = sudoNoop
+			return
+		}
+		if c.Exec(`sudo -n true`) == nil {
+			// user has passwordless sudo
+			c.sudofunc = sudoSudo
+			return
+		}
+		if c.Exec(`doas -n -- "${SHELL-sh}" -c true`) == nil {
+			// user has passwordless doas
+			c.sudofunc = sudoDoas
 		}
 		return
 	}
-	for check, fn := range sudoChecks {
-		if c.Exec(check) == nil {
-			c.sudofunc = fn
-			return
-		}
+
+	out, err := c.ExecOutput(`whoami`)
+	if err != nil {
+		return
+	}
+	parts := strings.Split(out, `\`)
+	if strings.ToLower(parts[len(parts)-1]) == "administrator" {
+		// user is already the administrator
+		c.sudofunc = sudoWindows
+		return
+	}
+
+	if c.Exec(`net user "%USERNAME%" | findstr /B /C:"Local Group Memberships" | findstr /C:"*Administrators"`) != nil {
+		// user is not in the Administrators group
+		return
+	}
+
+	out, err = c.ExecOutput(`reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" /v "EnableLUA"`)
+	if err != nil {
+		return
+	}
+	if strings.Contains(out, "0x0") {
+		// UAC is disabled and the user is in the Administrators group - expect sudo to work
+		c.sudofunc = sudoWindows
+		return
 	}
 }
 
 // Sudo formats a command string to be run with elevated privileges
 func (c Connection) Sudo(cmd string) (string, error) {
 	if c.sudofunc == nil {
-		return "", fmt.Errorf("%w: user is not an administrator and passwordless access elevation has not been configured", ErrSudoRequired)
+		if c.IsWindows() {
+			return "", fmt.Errorf("%w: UAC is enabled and user is not 'Administrator'", ErrSudoRequired)
+		}
+		return "", fmt.Errorf("%w: user is not root and passwordless access elevation (sudo, doas) has not been configured", ErrSudoRequired)
 	}
 
 	return c.sudofunc(cmd), nil
@@ -353,7 +382,8 @@ func (c *Connection) Disconnect() {
 
 // Upload copies a file from a local path src to the remote host path dst. For
 // smaller files you should probably use os.WriteFile
-func (c *Connection) Upload(src, dst string, _ ...exec.Option) error {
+func (c *Connection) Upload(src, dst string, opts ...exec.Option) error {
+
 	if err := c.checkConnected(); err != nil {
 		return err
 	}
@@ -370,15 +400,20 @@ func (c *Connection) Upload(src, dst string, _ ...exec.Option) error {
 
 	shasum := sha256.New()
 
-	fsys := c.Fsys()
-	remote, err := fsys.OpenFile(dst, rigfs.ModeCreate, rigfs.FileMode(stat.Mode()))
+	fsys := rigfs.NewFsys(c, opts...)
+	remote, err := fsys.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, stat.Mode())
 	if err != nil {
 		return fmt.Errorf("%w: open remote file %s for writing: %w", ErrInvalidPath, dst, err)
 	}
 	defer remote.Close()
 
-	if _, err := remote.CopyFromN(local, stat.Size(), shasum); err != nil {
+	localReader := io.TeeReader(local, shasum)
+	if _, err := remote.CopyFrom(localReader); err != nil {
+		_ = remote.Close()
 		return fmt.Errorf("%w: copy file %s to remote host: %w", ErrUploadFailed, dst, err)
+	}
+	if err := remote.Close(); err != nil {
+		return fmt.Errorf("%w: close remote file %s: %w", ErrUploadFailed, dst, err)
 	}
 
 	log.Debugf("%s: post-upload validate checksum of %s", c, dst)
@@ -387,7 +422,7 @@ func (c *Connection) Upload(src, dst string, _ ...exec.Option) error {
 		return fmt.Errorf("%w: validate %s checksum: %w", ErrUploadFailed, dst, err)
 	}
 
-	if remoteSum != fmt.Sprintf("%x", shasum.Sum(nil)) {
+	if remoteSum != hex.EncodeToString(shasum.Sum(nil)) {
 		return fmt.Errorf("%w: checksum mismatch", ErrUploadFailed)
 	}
 

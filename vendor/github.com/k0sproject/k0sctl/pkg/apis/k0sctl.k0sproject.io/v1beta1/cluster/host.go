@@ -2,8 +2,9 @@ package cluster
 
 import (
 	"fmt"
+	"net/url"
 	gos "os"
-	"path/filepath"
+	gopath "path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -11,9 +12,9 @@ import (
 
 	"github.com/alessio/shellescape"
 	"github.com/creasty/defaults"
-	validation "github.com/go-ozzo/ozzo-validation/v4"
-	"github.com/go-ozzo/ozzo-validation/v4/is"
 	"github.com/go-playground/validator/v10"
+	"github.com/jellydator/validation"
+	"github.com/jellydator/validation/is"
 	"github.com/k0sproject/rig"
 	"github.com/k0sproject/rig/exec"
 	"github.com/k0sproject/rig/os"
@@ -36,6 +37,7 @@ type Host struct {
 	Environment      map[string]string `yaml:"environment,flow,omitempty"`
 	UploadBinary     bool              `yaml:"uploadBinary,omitempty"`
 	K0sBinaryPath    string            `yaml:"k0sBinaryPath,omitempty"`
+	K0sDownloadURL   string            `yaml:"k0sDownloadURL,omitempty"`
 	InstallFlags     Flags             `yaml:"installFlags,omitempty"`
 	Files            []*UploadFile     `yaml:"files,omitempty"`
 	OSIDOverride     string            `yaml:"os,omitempty"`
@@ -142,7 +144,7 @@ type configurer interface {
 	ReadFile(os.Host, string) (string, error)
 	FileExist(os.Host, string) bool
 	Chmod(os.Host, string, string, ...exec.Option) error
-	DownloadK0s(os.Host, string, *version.Version, string) error
+	DownloadK0s(os.Host, string, *version.Version, string, ...exec.Option) error
 	DownloadURL(os.Host, string, string, ...exec.Option) error
 	InstallPackage(os.Host, ...string) error
 	FileContains(os.Host, string, string) bool
@@ -168,6 +170,7 @@ type configurer interface {
 	K0sctlLockFilePath(os.Host) string
 	UpsertFile(os.Host, string, string) error
 	MachineID(os.Host) (string, error)
+	SetPath(string, string)
 }
 
 // HostMetadata resolved metadata for host
@@ -175,12 +178,18 @@ type HostMetadata struct {
 	K0sBinaryVersion  *version.Version
 	K0sBinaryTempFile string
 	K0sRunningVersion *version.Version
+	K0sInstalled      bool
+	K0sExistingConfig string
+	K0sNewConfig      string
+	K0sJoinToken      string
+	K0sJoinTokenID    string
 	Arch              string
 	IsK0sLeader       bool
 	Hostname          string
 	Ready             bool
 	NeedsUpgrade      bool
 	MachineID         string
+	DryRunFakeLeader  bool
 }
 
 // UnmarshalYAML sets in some sane defaults when unmarshaling the data from yaml
@@ -203,14 +212,9 @@ func (h *Host) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // Address returns an address for the host
 func (h *Host) Address() string {
-	if h.SSH != nil {
-		return h.SSH.Address
+	if addr := h.Connection.Address(); addr != "" {
+		return addr
 	}
-
-	if h.WinRM != nil {
-		return h.WinRM.Address
-	}
-
 	return "127.0.0.1"
 }
 
@@ -335,13 +339,7 @@ func (h *Host) K0sInstallCommand() (string, error) {
 		flags.Delete("--force")
 	}
 
-	cmd := h.Configurer.K0sCmdf("install %s %s", role, flags.Join())
-	sudocmd, err := h.Sudo(cmd)
-	if err != nil {
-		log.Warnf("%s: %s", h, err.Error())
-		return cmd, nil
-	}
-	return sudocmd, nil
+	return h.Configurer.K0sCmdf("install %s %s", role, flags.Join()), nil
 }
 
 // K0sBackupCommand returns a full command to be used as run k0s backup
@@ -369,13 +367,17 @@ func (h *Host) K0sServiceName() string {
 	}
 }
 
+func (h *Host) k0sBinaryPathDir() string {
+	return gopath.Dir(h.Configurer.K0sBinaryPath())
+}
+
 // InstallK0sBinary installs the k0s binary from the provided file path to K0sBinaryPath
 func (h *Host) InstallK0sBinary(path string) error {
 	if !h.Configurer.FileExist(h, path) {
 		return fmt.Errorf("k0s binary tempfile not found")
 	}
 
-	dir := filepath.Dir(h.Configurer.K0sBinaryPath())
+	dir := h.k0sBinaryPathDir()
 	if err := h.Execf(`install -m 0755 -o root -g root -d "%s"`, dir, exec.Sudo(h)); err != nil {
 		return fmt.Errorf("create k0s binary dir: %w", err)
 	}
@@ -419,7 +421,12 @@ func (h *Host) DrainNode(node *Host) error {
 	return h.Exec(h.Configurer.KubectlCmdf(h, h.K0sDataDir(), "drain --grace-period=120 --force --timeout=5m --ignore-daemonsets --delete-emptydir-data %s", node.Metadata.Hostname), exec.Sudo(h))
 }
 
-// UncordonNode marks the node schedulable again
+// CordonNode marks the node unschedulable
+func (h *Host) CordonNode(node *Host) error {
+	return h.Exec(h.Configurer.KubectlCmdf(h, h.K0sDataDir(), "cordon %s", node.Metadata.Hostname), exec.Sudo(h))
+}
+
+// UncordonNode marks the node schedulable
 func (h *Host) UncordonNode(node *Host) error {
 	return h.Exec(h.Configurer.KubectlCmdf(h, h.K0sDataDir(), "uncordon %s", node.Metadata.Hostname), exec.Sudo(h))
 }
@@ -427,14 +434,6 @@ func (h *Host) UncordonNode(node *Host) error {
 // DeleteNode deletes the given node from kubernetes
 func (h *Host) DeleteNode(node *Host) error {
 	return h.Exec(h.Configurer.KubectlCmdf(h, h.K0sDataDir(), "delete node %s", node.Metadata.Hostname), exec.Sudo(h))
-}
-
-func (h *Host) LeaveEtcd(node *Host) error {
-	etcdAddress := node.SSH.Address
-	if node.PrivateAddress != "" {
-		etcdAddress = node.PrivateAddress
-	}
-	return h.Exec(h.Configurer.K0sCmdf("etcd leave --peer-address %s --datadir %s", etcdAddress, h.K0sDataDir()), exec.Sudo(h))
 }
 
 // CheckHTTPStatus will perform a web request to the url and return an error if the http status is not the expected
@@ -451,7 +450,6 @@ func (h *Host) CheckHTTPStatus(url string, expected ...int) error {
 	}
 
 	return fmt.Errorf("expected response code %d but received %d", expected, status)
-
 }
 
 // NeedCurl returns true when the curl package is needed on the host
@@ -517,4 +515,56 @@ func (h *Host) FileChanged(lpath, rpath string) bool {
 	}
 
 	return false
+}
+
+// ExpandTokens expands percent-sign prefixed tokens in a string, mainly for the download URLs.
+// The supported tokens are:
+//
+//   - %% - literal %
+//   - %p - host architecture (arm, arm64, amd64)
+//   - %v - k0s version (v1.21.0+k0s.0)
+//   - %x - k0s binary extension (.exe on Windows)
+//
+// Any unknown token is output as-is with the leading % included.
+func (h *Host) ExpandTokens(input string, k0sVersion *version.Version) string {
+	if input == "" {
+		return ""
+	}
+	builder := strings.Builder{}
+	var inPercent bool
+	for i := 0; i < len(input); i++ {
+		currCh := input[i]
+		if inPercent {
+			inPercent = false
+			switch currCh {
+			case '%':
+				// Literal %.
+				builder.WriteByte('%')
+			case 'p':
+				// Host architecture (arm, arm64, amd64).
+				builder.WriteString(h.Metadata.Arch)
+			case 'v':
+				// K0s version (v1.21.0+k0s.0)
+				builder.WriteString(url.QueryEscape(k0sVersion.String()))
+			case 'x':
+				// K0s binary extension (.exe on Windows).
+				if h.IsConnected() && h.IsWindows() {
+					builder.WriteString(".exe")
+				}
+			default:
+				// Unknown token, just output it with the leading %.
+				builder.WriteByte('%')
+				builder.WriteByte(currCh)
+			}
+		} else if currCh == '%' {
+			inPercent = true
+		} else {
+			builder.WriteByte(currCh)
+		}
+	}
+	if inPercent {
+		// Trailing %.
+		builder.WriteByte('%')
+	}
+	return builder.String()
 }

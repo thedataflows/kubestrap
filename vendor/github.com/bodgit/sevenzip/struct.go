@@ -39,7 +39,6 @@ type packInfo struct {
 	streams  uint64
 	size     []uint64
 	digest   []uint32
-	defined  []bool
 }
 
 type coder struct {
@@ -121,7 +120,7 @@ func (rc *folderReadCloser) Seek(offset int64, whence int) (int64, error) {
 	case io.SeekCurrent:
 		newo = int64(rc.wc.Count()) + offset
 	case io.SeekEnd:
-		newo = rc.size + offset
+		newo = rc.Size() + offset
 	default:
 		return 0, errors.New("invalid whence")
 	}
@@ -134,7 +133,7 @@ func (rc *folderReadCloser) Seek(offset int64, whence int) (int64, error) {
 		return 0, errors.New("cannot seek backwards")
 	}
 
-	if newo > rc.size {
+	if newo > rc.Size() {
 		return 0, errors.New("cannot seek beyond EOF")
 	}
 
@@ -174,16 +173,14 @@ func (f *folder) unpackSize() uint64 {
 }
 
 type unpackInfo struct {
-	folder  []*folder
-	digest  []uint32
-	defined []bool
+	folder []*folder
+	digest []uint32
 }
 
 type subStreamsInfo struct {
 	streams []uint64
 	size    []uint64
 	digest  []uint32
-	defined []bool
 }
 
 type streamsInfo struct {
@@ -205,13 +202,15 @@ func (si *streamsInfo) FileFolderAndSize(file int) (int, uint64) {
 
 	var (
 		folder  int
-		streams uint64
+		streams uint64 = 1
 	)
 
-	for folder, streams = range si.subStreamsInfo.streams {
-		total += streams
-		if uint64(file) < total {
-			break
+	if si.subStreamsInfo != nil {
+		for folder, streams = range si.subStreamsInfo.streams {
+			total += streams
+			if uint64(file) < total {
+				break
+			}
 		}
 	}
 
@@ -325,8 +324,14 @@ type FileHeader struct {
 	Attributes       uint32
 	CRC32            uint32
 	UncompressedSize uint64
-	isEmptyStream    bool
-	isEmptyFile      bool
+
+	// Stream is an opaque identifier representing the compressed stream
+	// that contains the file. Any File with the same value can be assumed
+	// to be stored within the same stream.
+	Stream int
+
+	isEmptyStream bool
+	isEmptyFile   bool
 }
 
 // FileInfo returns an fs.FileInfo for the FileHeader.

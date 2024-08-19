@@ -2,6 +2,7 @@ package os
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -19,16 +20,16 @@ type Linux struct{}
 
 // initSystem interface defines an init system - the OS's system to manage services (systemd, openrc for example)
 type initSystem interface {
-	StartService(initsystem.Host, string) error
-	StopService(initsystem.Host, string) error
-	RestartService(initsystem.Host, string) error
-	DisableService(initsystem.Host, string) error
-	EnableService(initsystem.Host, string) error
-	ServiceIsRunning(initsystem.Host, string) bool
-	ServiceScriptPath(initsystem.Host, string) (string, error)
-	DaemonReload(initsystem.Host) error
-	ServiceEnvironmentPath(initsystem.Host, string) (string, error)
-	ServiceEnvironmentContent(map[string]string) string
+	StartService(host initsystem.Host, service string) error
+	StopService(host initsystem.Host, service string) error
+	RestartService(host initsystem.Host, service string) error
+	DisableService(host initsystem.Host, service string) error
+	EnableService(host initsystem.Host, service string) error
+	ServiceIsRunning(host initsystem.Host, service string) bool
+	ServiceScriptPath(host initsystem.Host, service string) (string, error)
+	DaemonReload(host initsystem.Host) error
+	ServiceEnvironmentPath(host initsystem.Host, srvice string) (string, error)
+	ServiceEnvironmentContent(envs map[string]string) string
 }
 
 // ErrInitSystemNotSupported is returned when the init system is not supported
@@ -50,13 +51,13 @@ func (c Linux) hasUpstart(h Host) bool {
 }
 
 func (c Linux) hasOpenRC(h Host) bool {
-	return h.Exec(`command -v openrc-init > /dev/null 2>&1 || \
+	return h.Exec(`/bin/sh -c "command -v openrc-init > /dev/null 2>&1" || \
     (stat /etc/inittab > /dev/null 2>&1 && \
 		  (grep ::sysinit: /etc/inittab | grep -q openrc) )`, exec.Sudo(h)) == nil
 }
 
 func (c Linux) hasSysV(h Host) bool {
-	return h.Exec(`command -v service 2>&1 && stat /etc/init.d > /dev/null 2>&1`, exec.Sudo(h)) == nil
+	return h.Exec(`/bin/sh -c "command -v service 2>&1" && stat /etc/init.d > /dev/null 2>&1`, exec.Sudo(h)) == nil
 }
 
 func (c Linux) is(h Host) (initSystem, error) {
@@ -256,11 +257,15 @@ func (c Linux) InstallFile(h Host, src, dst, permissions string) error {
 
 // ReadFile reads a files contents from the host.
 func (c Linux) ReadFile(h Host, path string) (string, error) {
-	out, err := h.ExecOutputf("cat -- %s 2> /dev/null", shellescape.Quote(path), exec.HideOutput(), exec.Sudo(h))
+	out := bytes.NewBuffer(nil)
+	cmd, err := h.ExecStreams(fmt.Sprintf("cat -- %s 2> /dev/null", shellescape.Quote(path)), nil, out, nil, exec.Sudo(h))
 	if err != nil {
 		return "", fmt.Errorf("failed to read file %s: %w", path, err)
 	}
-	return out, nil
+	if err := cmd.Wait(); err != nil {
+		return "", fmt.Errorf("failed to read file %s: %w", path, err)
+	}
+	return out.String(), nil
 }
 
 // DeleteFile deletes a file from the host.
@@ -371,7 +376,7 @@ func (c Linux) CleanupServiceEnvironment(h Host, s string) error {
 
 // CommandExist returns true if the command exists
 func (c Linux) CommandExist(h Host, cmd string) bool {
-	return h.Execf(`command -v -- "%s" 2> /dev/null`, cmd, exec.Sudo(h)) == nil
+	return h.Execf("/bin/sh -c %s 2> /dev/null", shellescape.Quote(fmt.Sprintf("command -v -- %s", shellescape.Quote(cmd)))) == nil
 }
 
 // Reboot executes the reboot command
@@ -464,7 +469,7 @@ func (c Linux) Touch(h Host, path string, ts time.Time, opts ...exec.Option) err
 	// to detect BusyBox touch and if it's not BusyBox go on with the
 	// full-precision GNU format instead.
 	if !utc.Equal(utc.Truncate(time.Second)) {
-		out, err := h.ExecOutput("env -i LC_ALL=C TZ=UTC touch --help 2>&1")
+		out, err := h.ExecOutput("env -i LC_ALL=C TZ=UTC touch --help 2>&1", exec.HideOutput(), exec.HideCommand())
 		if err != nil || !strings.Contains(out, "BusyBox") {
 			format = gnuCoreutilsDateTimeLayout
 		}
@@ -479,4 +484,13 @@ func (c Linux) Touch(h Host, path string, ts time.Time, opts ...exec.Option) err
 		return fmt.Errorf("failed to touch %s: %w", path, err)
 	}
 	return nil
+}
+
+// Sha256sum calculates the sha256 checksum of a file
+func (c Linux) Sha256sum(h Host, path string, opts ...exec.Option) (string, error) {
+	out, err := h.ExecOutput(fmt.Sprintf("sha256sum -b -- %s 2> /dev/null", shellescape.Quote(path)), opts...)
+	if err != nil {
+		return "", fmt.Errorf("failed to shasum %s: %w", path, err)
+	}
+	return strings.Split(out, " ")[0], nil
 }
