@@ -12,12 +12,52 @@
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "cwd": "${workspaceFolder}",
+            // "cwd": "${workspaceFolder}",
             "program": "${workspaceFolder}/main.go",
+            // https: //github.com/golang/vscode-go/issues/2015#issuecomment-1345667741
+            // "console": "integratedTerminal",
+            // "args": [
+            //     "--log-level",
+            //     "debug",
+            //     "--project-root",
+            //     "sample",
+            //     "raw",
+            //     "flux",
+            //     "--",
+            //     "bootstrap",
+            //     "--context=aztu",
+            //     "--namespace=flux-system",
+            //     "gitlab",
+            //     "--components-extra=image-reflector-controller,image-automation-controller",
+            //     "--owner=allianztiriacunit",
+            //     "--repository=aztu-gitops",
+            //     "--branch=main",
+            //     "--token-auth",
+            //     "--path=kubernetes/cluster-aztu",
+            // ],
+            // "args": [
+            //     "--log-level",
+            //     "debug",
+            //     "--project-root",
+            //     "sample",
+            //     "secrets",
+            //     "--context",
+            //     "mycontext",
+            //     "decrypt-value",
+            //     "kubernetes/cluster-mycontext/flux-system/secret.gitlab-access-token.yaml"
+            // ]
+            "console": "integratedTerminal",
+            "cwd": "/mnt/win/d/dev/aztu-gitops/",
             "args": [
+                "--config",
+                "/mnt/win/d/dev/aztu-gitops/kubestrap-defaults.yaml",
+                "--config",
+                "/mnt/win/d/dev/aztu-gitops/kubestrap-aztu.yaml",
                 "--log-level",
                 "debug",
-                "cluster"
+                "secrets",
+                "decrypt",
+                "kubernetes/cluster-dataflows/shared/secret.gitlab-access-token.yaml"
             ]
         }
     ]

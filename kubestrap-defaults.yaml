@@ -3,40 +3,40 @@ raw:
   # timeout: 1m0s
   utilities:
     - name: yq
-      release: 4.40.5
+      release: 4.44.3
       url:
         windows: https://github.com/mikefarah/yq/releases/download/v{{release}}/{{name}}_{{os}}_{{arch}}.exe
         linux: &linux https://github.com/mikefarah/yq/releases/download/v{{release}}/{{name}}_{{os}}_{{arch}}
         darwin: *linux
       version-command: --version
     - name: kubectl
-      release: v1.27.8
+      release: v1.30.3
       url:
         windows: https://dl.k8s.io/release/{{release}}/bin/{{os}}/{{arch}}/{{name}}.exe
         linux: &linux https://dl.k8s.io/release/{{release}}/bin/{{os}}/{{arch}}/{{name}}
         darwin: *linux
       version-command: version --client=true -o=yaml
     - name: k0s
-      release: v1.27.8+k0s.0
+      release: v1.30.3+k0s.0
       url:
         windows: https://github.com/k0sproject/k0s/releases/download/{{release}}/{{name}}-{{release}}-{{arch}}.exe
         linux: https://github.com/k0sproject/k0s/releases/download/{{release}}/{{name}}-{{release}}-{{arch}}
         # darwin: not yet available
     - name: k0sctl
-      release: v0.16.0
+      release: v0.18.1
       url:
         windows: https://github.com/k0sproject/k0sctl/releases/download/{{release}}/{{name}}-win-x64.exe
         linux: &linux https://github.com/k0sproject/k0sctl/releases/download/{{release}}/{{name}}-{{os}}-x64
         darwin: *linux
     - name: flux
-      release: 2.2.2
+      release: 2.3.0
       url:
         windows: https://github.com/fluxcd/flux2/releases/download/v{{release}}/{{name}}_{{release}}_{{os}}_{{arch}}.zip
         linux: &linux https://github.com/fluxcd/flux2/releases/download/v{{release}}/{{name}}_{{release}}_{{os}}_{{arch}}.tar.gz
         darwin: *linux
       version-command: version --client
     - name: age
-      release: v1.1.1
+      release: v1.2.0
       additional:
         - age-keygen
       url:
@@ -47,21 +47,21 @@ raw:
       extract:
         pattern: age/age.*
     - name: sops
-      release: 3.8.1
+      release: 3.9.0
       url:
         windows: https://github.com/mozilla/sops/releases/download/v{{release}}/{{name}}-v{{release}}.exe
         linux: &linux https://github.com/mozilla/sops/releases/download/v{{release}}/{{name}}-v{{release}}.{{os}}.{{arch}}
         darwin: *linux
       version-command: --version
     - name: velero
-      release: v1.12.2
+      release: v1.14.0
       url:
         windows: &windows https://github.com/vmware-tanzu/velero/releases/download/{{release}}/{{name}}-{{release}}-{{os}}-{{arch}}.tar.gz
         linux: *windows
         darwin: *windows
       version-command: version --client-only
     - name: flarectl
-      release: 0.84.0
+      release: 0.102.0
       url:
         windows: &windows https://github.com/cloudflare/cloudflare-go/releases/download/v{{release}}/{{name}}_{{release}}_{{os}}_{{arch}}.tar.gz
         linux: *windows
